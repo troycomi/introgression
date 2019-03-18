@@ -2,15 +2,9 @@ import re
 import sys
 import os
 import copy
-import gene_predictions
-sys.path.insert(0, '..')
 import global_params as gp
-sys.path.insert(0, '../sim/')
-import sim_analyze_hmm_bw as sim
-sys.path.insert(0, '../misc/')
-import mystats
-import read_table
-import seq_functions
+from misc import read_table
+from misc import seq_functions
 
 def write_filtered_line(f, region_id, region, fields):
     f.write(region_id + '\t' + '\t'.join([str(region[field]) for field in fields[1:]]))
