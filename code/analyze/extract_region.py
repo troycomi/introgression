@@ -1,18 +1,15 @@
 #!/usr/bin/env python3
 import argparse
-import os
-import pickle
-import gzip
-import sys
+from misc.region_reader import Region_Reader
 
 
 def main():
     args = parse_args()
-    args = validate_args(args)
-    index = pickle.load(open(args['pickle'], 'rb'))
-    locations = decode_regions(args['regions'], index, args['list_sort'])
-    with gzip.open(args['filename'], 'rt') as reader:
-        write_regions(reader, locations, args['suppress_header'])
+    args, reader = validate_args(args)
+    with reader:
+        locations = decode_regions(args['regions'],
+                                   reader, args['list_sort'])
+        write_regions(reader, locations)
 
 
 def parse_args(args=None):
@@ -44,40 +41,24 @@ def validate_args(args):
     '''
     Performs checks and conversions of input, raises ValueErrors if invalid
     '''
-    if not os.path.exists(args['filename']):
-        raise ValueError(f'{args["filename"]} not found')
+    reader = Region_Reader(args['filename'],
+                           as_fa=False,
+                           suppress_header=args['suppress_header'],
+                           num_lines=15)
 
-    if args['filename'][-6:] != '.fa.gz':
-        raise ValueError(f'{args["filename"]} expected to be .fa.gz')
+    args['regions'] = [reader.convert_region(r) for r in args['regions']]
 
-    args['pickle'] = args['filename'][:-6] + '.pkl'
-    if not os.path.exists(args['pickle']):
-        raise ValueError(f'{args["pickle"]} not found with region file')
-
-    parsed_regions = []
-    for region in args['regions']:
-        r = region
-        if r[0] == 'r':
-            r = r[1:]
-        if not r.isdigit():
-            raise ValueError(f'{region} could not be parsed')
-        parsed_regions.append(int(r))
-    args['regions'] = parsed_regions
-
-    return args
+    return args, reader
 
 
-def decode_regions(regions, index, retain_sort):
+def decode_regions(regions, reader, retain_sort):
     '''
     Converts list of regions to file locations based on index dictionary
     Retain_sort controls if the output list order is determined by the
     region order or the disk location (i.e. values of index dict)
     '''
 
-    try:
-        result = [index[r] for r in regions]
-    except KeyError as e:
-        raise KeyError(f'r{e} not found in index')
+    result = [reader.decode_region(r) for r in regions]
 
     if retain_sort:
         return result
@@ -85,25 +66,13 @@ def decode_regions(regions, index, retain_sort):
         return sorted(result)
 
 
-def write_regions(reader, locations, suppress_header, num_lines=15):
+def write_regions(reader, locations):
     '''
     Writes the regions specified by index to stdout
     If print_header is false, ignore first line after location
     '''
-    if suppress_header is True:
-        num_lines -= 1
-
     for location in locations:
-        reader.seek(location)
-        if suppress_header is True:
-            reader.readline()
-        for i in range(num_lines):
-            line = reader.readline()
-            if line == '':
-                print(f'{location} outside of file', file=sys.stderr)
-                break
-            else:
-                print(line, end='')
+        reader.read_location(location)
 
 
 if __name__ == '__main__':

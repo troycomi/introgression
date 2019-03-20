@@ -16,58 +16,48 @@ from analyze.filter_helpers import passes_filters1, write_filtered_line
 import global_params as gp
 from misc import read_table
 from misc import read_fasta
+from misc.region_reader import Region_Reader
 
 
 def main():
     args = predict.process_predict_args(sys.argv[1:])
+    out_dir = gp.analysis_out_dir_absolute + args['tag']
 
     for species_from in args['known_states'][1:]:
 
         print(species_from)
 
-        fn = gp.analysis_out_dir_absolute + args['tag'] + '/' + \
-            'blocks_' + species_from + \
-            '_' + args['tag'] + '_quality.txt'
-        region_summary, fields = read_table.read_table_rows(fn, '\t')
+        region_summary, fields = read_table.read_table_rows(
+            f'{out_dir}/blocks_{species_from}_{args["tag"]}_quality.txt',
+            '\t')
 
         fields1i = fields + ['reason']
         fields1 = fields
 
-        fn_out1i = gp.analysis_out_dir_absolute + args['tag'] + '/' + \
-            'blocks_' + species_from + \
-            '_' + args['tag'] + '_filtered1intermediate.txt'
+        with open(f'{out_dir}/blocks_{species_from}_{args["tag"]}'
+                  '_filtered1intermediate.txt', 'w') as f_out1i, \
+                open(f'{out_dir}/blocks_{species_from}_{args["tag"]}'
+                     '_filtered1.txt', 'w') as f_out1, \
+                Region_Reader(f'{out_dir}/regions/{species_from}.fa.gz',
+                              as_fa=True) as region_reader:
 
-        fn_out1 = gp.analysis_out_dir_absolute + args['tag'] + '/' + \
-            'blocks_' + species_from + \
-            '_' + args['tag'] + '_filtered1.txt'
+            f_out1i.write('\t'.join(fields1i) + '\n')
+            f_out1.write('\t'.join(fields1) + '\n')
 
-        f_out1i = open(fn_out1i, 'w')
-        f_out1i.write('\t'.join(fields1i) + '\n')
+            for region_id in region_summary:
+                region = region_summary[region_id]
+                headers, seqs = region_reader.read_region(region_id)
+                info_string = seqs[-1]
+                seqs = seqs[:-1]
 
-        f_out1 = open(fn_out1, 'w')
-        f_out1.write('\t'.join(fields1) + '\n')
+                # filtering stage 1: things that we're confident in calling not
+                # S288c
+                p, reason = passes_filters1(region, info_string)
+                region['reason'] = reason
+                write_filtered_line(f_out1i, region_id, region, fields1i)
 
-        for region_id in region_summary:
-            region = region_summary[region_id]
-            headers, seqs = read_fasta.read_fasta(
-                gp.analysis_out_dir_absolute +
-                args['tag'] +
-                '/regions/' + region_id + '.fa.gz',
-                gz=True)
-            info_string = seqs[-1]
-            seqs = seqs[:-1]
-
-            # filtering stage 1: things that we're confident in calling not
-            # S288c
-            p, reason = passes_filters1(region, info_string)
-            region['reason'] = reason
-            write_filtered_line(f_out1i, region_id, region, fields1i)
-
-            if p:
-                write_filtered_line(f_out1, region_id, region, fields1)
-
-        f_out1i.close()
-        f_out1.close()
+                if p:
+                    write_filtered_line(f_out1, region_id, region, fields1)
 
 
 if __name__ == "__main__":

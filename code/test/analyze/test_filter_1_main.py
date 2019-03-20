@@ -1,4 +1,5 @@
 from analyze import filter_1_main as main
+from misc.region_reader import Region_Reader
 
 
 def test_main(mocker, capsys):
@@ -8,13 +9,15 @@ def test_main(mocker, capsys):
                      'tag': 'tag'
                  })
     mocker.patch('analyze.filter_1_main.gp.analysis_out_dir_absolute',
-                '/dir')
+                 '/dir')
     mocker.patch('analyze.filter_1_main.read_table.read_table_rows',
                  return_value=({'r1': {}, 'r2': {'a': 1}}, ['regions']))
     mocked_file = mocker.patch('analyze.filter_1_main.open')
-    mock_fasta = mocker.patch('analyze.filter_1_main.read_fasta.read_fasta',
-                              return_value=(['> seq', '> info'],
-                                            ['atcg', 'x..']))
+
+    mock_read = mocker.patch('analyze.filter_1_main.Region_Reader')
+    mock_read().__enter__().read_region.return_value = (['> seq', '> info'],
+                                                        ['atcg', 'x..'])
+
     mock_filter = mocker.patch('analyze.filter_1_main.passes_filters1',
                                side_effect=[(False, 'test'),  # r1
                                             (True, '')])  # r2
@@ -25,9 +28,12 @@ def test_main(mocker, capsys):
     captured = capsys.readouterr().out
     assert captured == 'state2\n'
 
-    assert mock_fasta.call_count == 2
-    mock_fasta.assert_any_call('/dirtag/regions/r2.fa.gz', gz=True)
-    mock_fasta.assert_any_call('/dirtag/regions/r1.fa.gz', gz=True)
+    assert mock_read.call_count == 2  # called once during setup
+    mock_read.assert_called_with('/dirtag/regions/state2.fa.gz', as_fa=True)
+
+    assert mock_read().__enter__().read_region.call_count == 2
+    mock_read().__enter__().read_region.assert_any_call('r1')
+    mock_read().__enter__().read_region.assert_any_call('r2')
 
     assert mocked_file.call_count == 2
     mocked_file.assert_any_call(
@@ -36,7 +42,7 @@ def test_main(mocker, capsys):
         '/dirtag/blocks_state2_tag_filtered1.txt', 'w')
 
     # just headers, capture others
-    mocked_file().write.assert_has_calls([
+    mocked_file().__enter__().write.assert_has_calls([
         mocker.call('regions\treason\n'),
         mocker.call('regions\n')])
 
