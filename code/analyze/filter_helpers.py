@@ -1,11 +1,13 @@
 import global_params as gp
 from misc import seq_functions
+import numpy as np
 
 
 def write_filtered_line(f, region_id, region, fields):
-    f.write(region_id + '\t' + '\t'.join([str(region[field])
-                                          for field in fields[1:]]))
-    f.write('\n')
+    f.write(f'{region_id}\t'
+            + '\t'.join([str(region[field])
+                         for field in fields[1:]])
+            + '\n')
 
 
 def passes_filters(region):
@@ -57,11 +59,11 @@ def passes_filters1(region, info_string):
         1 - float(region['num_sites_nonmask_' + s]) / aligned_length
 
     if fraction_gaps_masked_r > fraction_gaps_masked_threshold:
-        return False, 'fraction gaps/masked in master = ' + \
-            str(fraction_gaps_masked_r)
+        return False, f'fraction gaps/masked in master = '\
+            f'{fraction_gaps_masked_r}'
     if fraction_gaps_masked_s > fraction_gaps_masked_threshold:
-        return False, 'fraction gaps/masked in predicted = ' + \
-            str(fraction_gaps_masked_s)
+        return False, f'fraction gaps/masked in predicted = '\
+            f'{fraction_gaps_masked_s}'
 
     # FILTER: number sites analyzed by HMM that match predicted
     # reference
@@ -79,11 +81,12 @@ def passes_filters1(region, info_string):
         float(region['num_sites_nongap_' + s])
     id_master = float(region['match_nongap_' + r]) / \
         float(region['num_sites_nongap_' + r])
+
     if id_master >= id_predicted:
-        return False, 'id with master = ' + str(id_master) + \
-            ' and id with predicted = ' + str(id_predicted)
+        return False, f'id with master = {id_master} '\
+            f'and id with predicted = {id_predicted}'
     if id_master < .7:
-        return False, 'id with master = ' + str(id_master)
+        return False, f'id with master = {id_master}'
 
     return True, ''
 
@@ -94,28 +97,34 @@ def passes_filters2(region, seqs, threshold):
     # it out
 
     refs = gp.alignment_ref_order
-    n = len(seqs[0])
     s = region['predicted_species']
 
     ids = {}
     totals = {}
     P_counts = {}
-    skip = [gp.gap_symbol, gp.unsequenced_symbol]
 
-    for ri in range(1, len(refs)):
+    seqs = np.asarray(seqs)
+    # skip any gap or unsequenced in ref or test
+    # also skip if ref and test equal (later test ri == test but not ref)
+    skip = np.any(
+        (seqs[0] == gp.gap_symbol,
+         seqs[0] == gp.unsequenced_symbol,
+         seqs[-1] == gp.gap_symbol,
+         seqs[-1] == gp.unsequenced_symbol,
+         seqs[0] == seqs[-1]),
+        axis=0)
+
+    for ri, ref in enumerate(refs):
+        if ri == 0:
+            continue
         r_match, r_total = seq_functions.seq_id(seqs[-1], seqs[ri])
         if r_total != 0:
-            ids[refs[ri]] = float(r_match) / r_total
-            totals[refs[ri]] = r_total
-            P_count = 0
-            for i in range(n):
-                if (seqs[ri][i] in skip or
-                        seqs[0][i] in skip or
-                        seqs[-1][i] in skip):
-                    continue
-                if seqs[-1][i] == seqs[ri][i] and seqs[-1][i] != seqs[0][i]:
-                    P_count += 1
-            P_counts[refs[ri]] = P_count
+            ids[ref] = r_match / r_total
+            totals[ref] = r_total
+            P_counts[ref] = np.sum(
+                np.logical_and(
+                    np.logical_not(skip),
+                    seqs[ri] == seqs[-1]))
 
     alts = {}
     for r in ids.keys():

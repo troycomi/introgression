@@ -39,9 +39,19 @@ class Region_Reader():
     def __enter__(self):
         self.region_reader = gzip.open(self.region_file, 'rt')
         self.index = pickle.load(open(self.pickle, 'rb'))
+        return self
 
-    def __exit__(self):
+    def __exit__(self, type, value, traceback):
         self.region_reader.close()
+
+    def __repr__(self):
+        print(
+            f'region_file = {self.region_file}\n'
+            f'pickle = {self.pickle}\n'
+            f'as_fa = {self.as_fa}\n'
+            f'suppress_header = {self.suppress_header}\n'
+            f'num_lines = {self.num_lines}\n'
+        )
 
     def read_region(self, region_name):
         '''

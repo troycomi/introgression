@@ -1,5 +1,4 @@
 from analyze import filter_1_main as main
-from misc.region_reader import Region_Reader
 
 
 def test_main(mocker, capsys):
