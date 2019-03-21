@@ -14,8 +14,9 @@ def test_main(mocker, capsys):
     mocked_file = mocker.patch('analyze.filter_1_main.open')
 
     mock_read = mocker.patch('analyze.filter_1_main.Region_Reader')
-    mock_read().__enter__().read_region.return_value = (['> seq', '> info'],
-                                                        ['atcg', 'x..'])
+    mock_read().__enter__().yield_fa.return_value = iter([
+        ('r1', ['> seq', '> info'], ['atcg', 'x..']),
+        ('r2', ['> seq', '> info'], ['atcg', 'x..'])])
 
     mock_filter = mocker.patch('analyze.filter_1_main.passes_filters1',
                                side_effect=[(False, 'test'),  # r1
@@ -29,10 +30,6 @@ def test_main(mocker, capsys):
 
     assert mock_read.call_count == 2  # called once during setup
     mock_read.assert_called_with('/dirtag/regions/state2.fa.gz', as_fa=True)
-
-    assert mock_read().__enter__().read_region.call_count == 2
-    mock_read().__enter__().read_region.assert_any_call('r1')
-    mock_read().__enter__().read_region.assert_any_call('r2')
 
     assert mocked_file.call_count == 2
     mocked_file.assert_any_call(

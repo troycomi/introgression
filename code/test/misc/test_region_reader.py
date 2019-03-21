@@ -142,6 +142,25 @@ def test_decode_region(r):
     assert r.decode_region(100) == 4
 
 
+def test_yield_fa(r):
+    r.region_reader = StringIO('#h1\n'
+                               'header 1\n'
+                               'line 1\n'
+                               '#h2\n'
+                               'header 2\n'
+                               'line 2\n')
+    r.num_lines = 2
+    regions = ['h1', 'h2']
+    headers = [['header 1'], ['header 2']]
+    seqs = [np.asarray(['line 1']), np.asarray(['line 2'])]
+    i = 0
+    for region, header, seq in r.yield_fa():
+        assert region == regions[i]
+        assert header == headers[i]
+        assert seq == seqs[i]
+        i += 1
+
+
 def test_encode_fa(r):
     # outside of file
     r.region_reader = StringIO('')

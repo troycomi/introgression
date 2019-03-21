@@ -44,9 +44,8 @@ def main():
             f_out1i.write('\t'.join(fields1i) + '\n')
             f_out1.write('\t'.join(fields1) + '\n')
 
-            for region_id in region_summary:
+            for region_id, header, seqs in region_reader.yield_fa():
                 region = region_summary[region_id]
-                headers, seqs = region_reader.read_region(region_id)
                 info_string = seqs[-1]
                 seqs = seqs[:-1]
 

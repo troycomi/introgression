@@ -9,13 +9,13 @@ class Region_Reader():
     def __init__(self, region_file,
                  as_fa=False,
                  suppress_header=True,
-                 num_lines=15):
+                 num_lines=14):
         '''
         Checks for valid filename and existance of corresponding pickle
         as_fa: if true will return headers and sequences as read_fasta does
         suppress_header: if true will not print the #region_id line
-        num_lines: number of lines to print once seek to index. Includes region
-        header line.
+        num_lines: number of lines to print once seek to index. Does not
+        include region header line.
         '''
         if not os.path.exists(region_file):
             raise ValueError(f'{region_file} not found')
@@ -32,9 +32,6 @@ class Region_Reader():
         self.as_fa = as_fa
         self.suppress_header = suppress_header
         self.num_lines = num_lines
-        # read one less line when header is skipped
-        if suppress_header is True:
-            self.num_lines -= 1
 
     def __enter__(self):
         self.region_reader = gzip.open(self.region_file, 'rt')
@@ -45,7 +42,7 @@ class Region_Reader():
         self.region_reader.close()
 
     def __repr__(self):
-        print(
+        return (
             f'region_file = {self.region_file}\n'
             f'pickle = {self.pickle}\n'
             f'as_fa = {self.as_fa}\n'
@@ -101,6 +98,20 @@ class Region_Reader():
             raise KeyError(f'r{e} not found in index')
 
         return result
+
+    def yield_fa(self):
+        '''
+        repeatedly yield tuples of region, headers, sequences from fa file
+        assumes file position starts at header for region
+        suppress_header is taken as true (will not print)
+        '''
+        while True:
+            region = self.region_reader.readline()[1:-1]
+            try:
+                header, seq = self.encode_fa(region)
+                yield (region, header, seq)
+            except ValueError:
+                break
 
     def encode_fa(self, location):
         '''
