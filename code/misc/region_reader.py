@@ -99,17 +99,22 @@ class Region_Reader():
 
         return result
 
-    def yield_fa(self):
+    def yield_fa(self, keys=None):
         '''
         repeatedly yield tuples of region, headers, sequences from fa file
         assumes file position starts at header for region
         suppress_header is taken as true (will not print)
+        keys are a list of regions which are valid.  If provided will only
+        yield regions found in keys
         '''
         while True:
             region = self.region_reader.readline()[1:-1]
             try:
                 header, seq = self.encode_fa(region)
-                yield (region, header, seq)
+                if keys is None or region in keys:
+                    yield (region, header, np.asarray([list(s) for s in seq]))
+                else:
+                    continue
             except ValueError:
                 break
 

@@ -152,13 +152,44 @@ def test_yield_fa(r):
     r.num_lines = 2
     regions = ['h1', 'h2']
     headers = [['header 1'], ['header 2']]
-    seqs = [np.asarray(['line 1']), np.asarray(['line 2'])]
+    seqs = [np.asarray([list('line 1')]), np.asarray([list('line 2')])]
     i = 0
     for region, header, seq in r.yield_fa():
         assert region == regions[i]
         assert header == headers[i]
-        assert seq == seqs[i]
+        assert seq == approx(seqs[i])
         i += 1
+    assert i == 2
+
+    r.region_reader = StringIO('#h1\n'
+                               'header 1\n'
+                               'line 1\n'
+                               '#h2\n'
+                               'header 2\n'
+                               'line 2\n')
+    i = 0
+    # with keys added, should only yield one value
+    for region, header, seq in r.yield_fa({'h1': ''}.keys()):
+        assert region == regions[i]
+        assert header == headers[i]
+        assert seq == approx(seqs[i])
+        i += 1
+    assert i == 1
+
+    r.region_reader = StringIO('#h1\n'
+                               'header 1\n'
+                               'line 1\n'
+                               '#h2\n'
+                               'header 2\n'
+                               'line 2\n')
+    i = 0
+    # with keys added, should only yield one value
+    for region, header, seq in r.yield_fa({'h0': ''}.keys()):
+        assert region == regions[i]
+        assert header == headers[i]
+        assert seq == approx(seqs[i])
+        i += 1
+    assert i == 0
 
 
 def test_encode_fa(r):

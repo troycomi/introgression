@@ -12,7 +12,20 @@ done
 
 for file in $(ls ${expected}*_filtered1intermediate.txt); do
     act=$(echo $file | sed 's/p4e2/_test/g')
-    cmp <(sort $act | python intermediate_format.py) \
-        <(sort $file | python intermediate_format.py) \
+    cmp <(sort $act | python intermediate_format_1.py) \
+        <(sort $file | python intermediate_format_1.py) \
         && echo $file passed! || echo $file failed #&& exit
+done
+
+for file in $(ls ${expected}*_filtered2.txt); do
+    act=$(echo $file | sed 's/p4e2/_test/g')
+    cmp <(sort $act) <(sort $file) \
+        && echo $file passed! || echo $file failed #&& exit
+done
+
+for file in $(ls ${expected}*_filtered2intermediate.txt); do
+    act=$(echo $file | sed 's/p4e2/_test/g')
+    cmp <(sort $act | python intermediate_format_2.py) \
+        <(sort $file | python intermediate_format_2.py) \
+        && echo $file passed! || echo $file failed && exit
 done

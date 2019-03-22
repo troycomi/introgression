@@ -1,7 +1,7 @@
 # two levels of filtering:
 # 1. remove regions that don't look confidently introgressed at all,
 #    based on fraction gaps/masked, number of matches to S288c and not S288c
-#    --> _filtered1 
+#    --> _filtered1
 # 2. remove regions that we can't confidently pin on a specific reference,
 #    based on whether it matches similarly to other reference(s)
 #    --> _filtered2
@@ -9,68 +9,61 @@
 # do second level of filtering here, based on previously selected
 # thresholds
 
-import re
 import sys
-import os
-import copy
-import predict
-from filter_helpers import *
-sys.path.insert(0, '..')
+from analyze import predict
+from analyze.filter_helpers import (write_filtered_line,
+                                    passes_filters2)
 import global_params as gp
-sys.path.insert(0, '../misc/')
-import read_table
-import read_fasta
+from misc import read_table
+from misc.region_reader import Region_Reader
 
-args = predict.process_predict_args(sys.argv[2:])
-threshold = float(sys.argv[1])
 
-for species_from in args['known_states'][1:]:
+def main():
+    args = predict.process_predict_args(sys.argv[2:])
+    threshold = float(sys.argv[1])
+    out_dir = gp.analysis_out_dir_absolute + args['tag']
 
-    print species_from
+    for species_from in args['known_states'][1:]:
 
-    fn = gp.analysis_out_dir_absolute + args['tag'] + '/' + \
-         'blocks_' + species_from + \
-         '_' + args['tag'] + '_filtered1.txt'
-    region_summary, fields = read_table.read_table_rows(fn, '\t')
+        print(species_from)
 
-    fields2i = fields + ['alternative_states', 'alternative_ids', \
-                         'alternative_P_counts']
-    fields2 = fields
+        region_summary, fields = read_table.read_table_rows(
+            f'{out_dir}/blocks_{species_from}_{args["tag"]}_filtered1.txt',
+            '\t')
 
-    fn_out2i = gp.analysis_out_dir_absolute + args['tag'] + '/' + \
-              'blocks_' + species_from + \
-              '_' + args['tag'] + '_filtered2intermediate.txt'
+        fields2i = fields + ['alternative_states', 'alternative_ids',
+                             'alternative_P_counts']
+        fields2 = fields
 
-    fn_out2 = gp.analysis_out_dir_absolute + args['tag'] + '/' + \
-              'blocks_' + species_from + \
-              '_' + args['tag'] + '_filtered2.txt'
+        with open(f'{out_dir}/blocks_{species_from}_{args["tag"]}'
+                  '_filtered2intermediate.txt', 'w') as f_out2i, \
+                open(f'{out_dir}/blocks_{species_from}_{args["tag"]}'
+                     '_filtered2.txt', 'w') as f_out2, \
+                Region_Reader(f'{out_dir}/regions/{species_from}.fa.gz',
+                              as_fa=True) as region_reader:
 
-    f_out2i = open(fn_out2i, 'w')
-    f_out2i.write('\t'.join(fields2i) + '\n')
+            f_out2i.write('\t'.join(fields2i) + '\n')
+            f_out2.write('\t'.join(fields2) + '\n')
 
-    f_out2 = open(fn_out2, 'w')
-    f_out2.write('\t'.join(fields2) + '\n')
+            for region_id, header, seqs in \
+                    region_reader.yield_fa(region_summary.keys()):
+                region = region_summary[region_id]
 
-    for region_id in region_summary:
-        #print region_id, '****'
-        region = region_summary[region_id]
-        headers, seqs = read_fasta.read_fasta(gp.analysis_out_dir_absolute + \
-                                              args['tag'] + \
-                                              '/regions/' + region_id + '.fa.gz', \
-                                              gz = True)
-        info_string = seqs[-1]
-        seqs = seqs[:-1]
- 
-        # filtering stage 2: things that we're confident in calling
-        # introgressed from one species specifically
-        p, alt_states, alt_ids, alt_P_counts = passes_filters2(region, seqs, threshold)
-        region['alternative_states'] = ','.join(alt_states)
-        region['alternative_ids'] = ','.join([str(x) for x in alt_ids])
-        region['alternative_P_counts'] = ','.join([str(x) for x in alt_P_counts])
-        write_filtered_line(f_out2i, region_id, region, fields2i)
+                seqs = seqs[:-1]
 
-        if p:
-            write_filtered_line(f_out2, region_id, region, fields2)
+                # filtering stage 2: things that we're confident in calling
+                # introgressed from one species specifically
+                p, alt_states, alt_ids, alt_P_counts = passes_filters2(
+                    region, seqs, threshold)
+                region['alternative_states'] = ','.join(alt_states)
+                region['alternative_ids'] = ','.join([str(x) for x in alt_ids])
+                region['alternative_P_counts'] = ','.join(
+                    [str(x) for x in alt_P_counts])
+                write_filtered_line(f_out2i, region_id, region, fields2i)
 
-    f_out2i.close()
-    f_out2.close()
+                if p:
+                    write_filtered_line(f_out2, region_id, region, fields2)
+
+
+if __name__ == '__main__':
+    main()

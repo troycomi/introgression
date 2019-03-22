@@ -15,7 +15,6 @@ from analyze import predict
 from analyze.filter_helpers import passes_filters1, write_filtered_line
 import global_params as gp
 from misc import read_table
-from misc import read_fasta
 from misc.region_reader import Region_Reader
 
 

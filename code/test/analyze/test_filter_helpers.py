@@ -1,6 +1,10 @@
 from analyze import filter_helpers
 from io import StringIO
 import numpy as np
+from misc import read_fasta
+import os
+import warnings
+from pytest import approx
 
 
 def test_write_filtered_line():
@@ -58,14 +62,13 @@ def test_passes_filters():
     assert filter_helpers.passes_filters(region) is False
 
     # check divergences (match_ref1 / aligned - gapped) < 0.7
-    region = {'number_gaps': 1,
-              'number_masked_non_gap': 0,
+    region = {'number_masked_non_gap': 0,
               'start': 0,
               'end': 1,
               'number_match_ref2_not_ref1': 7,
               'number_match_ref1': 6,
               'aligned_length': 11,
-              }
+              'number_gaps': 1}
     assert filter_helpers.passes_filters(region) is False
 
     # passes
@@ -192,7 +195,6 @@ def test_passes_filters2(mocker):
             list('attatt'),  # 2 / 5, p = 0
             list('ag-tat')]  # test sequence
 
-    seqs = np.array(seqs)
     threshold = 0
     filt, states, ids, p_count = filter_helpers.passes_filters2(
         region, seqs, threshold)
@@ -216,3 +218,33 @@ def test_passes_filters2(mocker):
     assert states == ['1']
     assert ids == [0.8]
     assert p_count == [2]
+
+
+def test_passes_filters2_on_region(mocker):
+    mocker.patch('analyze.filter_helpers.gp.alignment_ref_order',
+                 ['S288c', 'CBS432', 'N_45', 'DBVPG6304', 'UWOPS91_917_1'])
+    mocker.patch('analyze.filter_helpers.gp.gap_symbol', '-')
+    mocker.patch('analyze.filter_helpers.gp.unsequenced_symbol', 'n')
+
+    fa = os.path.join(os.path.split(__file__)[0], 'r10805.fa')
+
+    if os.path.exists(fa):
+        headers, seqs = read_fasta.read_fasta(fa, gz=False)
+        seqs = seqs[:-1]
+        p, alt_states, alt_ids, alt_P_counts = filter_helpers.passes_filters2(
+            {'predicted_species': 'N_45'}, seqs, 0.1)
+        assert p is False
+        assert alt_states == ['CBS432', 'N_45', 'UWOPS91_917_1', 'DBVPG6304']
+        assert alt_ids == approx([0.9983805668016195, 0.994331983805668,
+                                  0.9642857142857143, 0.9618506493506493])
+        assert alt_P_counts == [145, 143, 128, 129]
+
+        p, alt_states, alt_ids, alt_P_counts = filter_helpers.passes_filters2(
+            {'predicted_species': 'N_45'}, seqs, 0.98)
+        assert p is False
+        assert alt_states == ['CBS432', 'N_45']
+        assert alt_ids == approx([0.9983805668016195, 0.994331983805668])
+        assert alt_P_counts == [145, 143]
+
+    else:
+        warnings.warn('Unable to test with datafile r10805.fa')
