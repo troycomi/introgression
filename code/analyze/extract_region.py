@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
 import argparse
 from misc.region_reader import Region_Reader
+from typing import List, Tuple
 
 
 def main():
+    '''
+    Main method to read in arguments from stdin and perform lookup with
+    Region_Reader
+    '''
     args = parse_args()
     args, reader = validate_args(args)
     with reader:
@@ -12,7 +17,7 @@ def main():
         write_regions(reader, locations)
 
 
-def parse_args(args=None):
+def parse_args(args: List[str] = None) -> argparse.Namespace:
     '''
     Read in input arguments or the supplied list of strings
     Returns a dictionary of options
@@ -37,7 +42,8 @@ def parse_args(args=None):
     return vars(parser.parse_args(args))
 
 
-def validate_args(args):
+def validate_args(args: argparse.Namespace) -> Tuple[argparse.Namespace,
+                                                     Region_Reader]:
     '''
     Performs checks and conversions of input, raises ValueErrors if invalid
     '''
@@ -51,7 +57,9 @@ def validate_args(args):
     return args, reader
 
 
-def decode_regions(regions, reader, retain_sort):
+def decode_regions(regions: List[int],
+                   reader: Region_Reader,
+                   retain_sort: bool) -> List[int]:
     '''
     Converts list of regions to file locations based on index dictionary
     Retain_sort controls if the output list order is determined by the
@@ -66,7 +74,7 @@ def decode_regions(regions, reader, retain_sort):
         return sorted(result)
 
 
-def write_regions(reader, locations):
+def write_regions(reader: Region_Reader, locations: List[int]) -> None:
     '''
     Writes the regions specified by index to stdout
     If print_header is false, ignore first line after location

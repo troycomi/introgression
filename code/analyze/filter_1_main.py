@@ -18,7 +18,10 @@ from misc import read_table
 from misc.region_reader import Region_Reader
 
 
-def main():
+def main() -> None:
+    '''
+    Perform first step of filtering
+    '''
     args = predict.process_predict_args(sys.argv[1:])
     out_dir = gp.analysis_out_dir_absolute + args['tag']
 

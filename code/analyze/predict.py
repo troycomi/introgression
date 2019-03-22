@@ -8,9 +8,13 @@ from sim import sim_process
 import global_params as gp
 from misc import read_fasta
 import numpy as np
+from typing import List, Dict, Tuple
 
 
-def process_predict_args(arg_list):
+def process_predict_args(arg_list: List[str]) -> Dict:
+    '''
+    Parses arguments from argv, producing dictionary of parsed values
+    '''
 
     d = {}
     i = 0
@@ -24,7 +28,7 @@ def process_predict_args(arg_list):
     d['threshold'] = 'viterbi'
     try:
         d['threshold'] = float(arg_list[i])
-    except:
+    except ValueError:
         pass
     i += 1
 
@@ -66,8 +70,12 @@ def process_predict_args(arg_list):
     return d
 
 
-def read_aligned_seqs(fn, strain):
-    headers, seqs = read_fasta.read_fasta(fn)
+def read_aligned_seqs(fast_file: str,
+                      strain: str) -> Tuple[np.array, np.array]:
+    '''
+    Read fasta file, returning sequences of references and the specied strain
+    '''
+    headers, seqs = read_fasta.read_fasta(fast_file)
     d = {}
     for i in range(len(seqs)):
         name = headers[i][1:].split(' ')[0]
@@ -81,7 +89,13 @@ def read_aligned_seqs(fn, strain):
     return ref_seqs, predict_seq
 
 
-def set_expectations(args, n):
+def set_expectations(args: Dict, n: int) -> None:
+    '''
+    sets expected number of tracts and bases for each reference
+    based on expected length of introgressed tracts and expected
+    total fraction of genome
+    also takes n, length of the sequence to analyze
+    '''
 
     species_to = gp.alignment_ref_order[0]
     species_from = gp.alignment_ref_order[1:]
@@ -103,7 +117,16 @@ def set_expectations(args, n):
         args['expected_num_tracts'][species_to]
 
 
-def ungap_and_code(predict_seq, ref_seqs, index_ref=0):
+def ungap_and_code(predict_seq: str,
+                   ref_seqs: List[str],
+                   index_ref: int = 0) -> Tuple[np.array, np.array]:
+    '''
+    Remove any sequence locations where a gap is present and code
+    into matching or mismatching sequence
+    Returns the coded sequences, by default an array of + where matching, - 
+    where mismatching.  Also return the positions where the sequences are not
+    gapped.
+    '''
     # index_ref is index of reference strain to index relative to
     # build character array
     sequences = np.array([list(predict_seq)] +
@@ -131,6 +154,9 @@ def ungap_and_code(predict_seq, ref_seqs, index_ref=0):
 
 
 def poly_sites(sequences, positions):
+    '''
+    WORKING ON ADDING DOC STRINGS AND TYPING!!
+    '''
     seq_len = len(sequences[0])
     # check if seq only contains match_symbol
     retain = np.vectorize(
@@ -293,9 +319,6 @@ def predict_introgressed(ref_seqs, predict_seq, predict_args,
     if return_positions:
         return positions
 
-    # sets expected number of tracts and bases for each reference
-    # based on expected length of introgressed tracts and expected
-    # total fraction of genome
     set_expectations(predict_args, len(predict_seq))
 
     # set initial hmm parameters based on combination of (1) initial

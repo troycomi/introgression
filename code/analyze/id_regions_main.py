@@ -4,7 +4,10 @@ from operator import itemgetter
 import global_params as gp
 
 
-def main():
+def main() -> None:
+    '''
+    Adds a unique region id to block files, producing labeled text files
+    '''
     args = predict.process_predict_args(sys.argv[1:])
 
     # order regions by chromosome, start (break ties alphabetically by strain)
