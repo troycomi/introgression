@@ -15,7 +15,7 @@ def test_main(mocker, capsys):
         'analyze.summarize_strain_states_main.gp.alignment_ref_order',
         ['state1', 'state2', 'state3'])
 
-    mocker.patch(
+    mock_read = mocker.patch(
         'analyze.summarize_strain_states_main.read_table.read_table_rows',
         side_effect=[
             ({'r1': {'strain': 's1', 'start': 10, 'end': 20,
@@ -82,3 +82,11 @@ def test_main(mocker, capsys):
         ('pop2\tgeo2\tenv2\t1\t1\t2\t0\t1\t1\t0\t1\t1\t0\t1\t1\t16\t5\t21\t0\t'
          '5\t5\t0\t5\t5\t0\t5\t5\t0\t0',)
     assert calls[6][0] == ('\n',)
+
+    assert mock_read.call_count == 4
+    fname = '/dirtag/blocks_state{s}_tag_filtered{f}intermediate.txt'
+    mock_read.assert_has_calls([
+        mocker.call(fname.format(s=2, f=1), '\t'),
+        mocker.call(fname.format(s=2, f=2), '\t'),
+        mocker.call(fname.format(s=3, f=1), '\t'),
+        mocker.call(fname.format(s=3, f=2), '\t')])
