@@ -7,6 +7,11 @@ import global_params as gp
 def main() -> None:
     '''
     Adds a unique region id to block files, producing labeled text files
+    Input files:
+    -blocks_{species}.txt
+
+    Output files:
+    -blocks_{species}_labeled.txt
     '''
     args = predict.process_predict_args(sys.argv[1:])
 

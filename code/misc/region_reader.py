@@ -3,13 +3,15 @@ import gzip
 import os
 import sys
 import numpy as np
+from typing import Dict, List, Tuple
 
 
 class Region_Reader():
-    def __init__(self, region_file,
-                 as_fa=False,
-                 suppress_header=True,
-                 num_lines=14):
+    def __init__(self,
+                 region_file: str,
+                 as_fa: bool = False,
+                 suppress_header: bool = True,
+                 num_lines: int = 14):
         '''
         Checks for valid filename and existance of corresponding pickle
         as_fa: if true will return headers and sequences as read_fasta does
@@ -50,7 +52,7 @@ class Region_Reader():
             f'num_lines = {self.num_lines}\n'
         )
 
-    def read_region(self, region_name):
+    def read_region(self, region_name: str):
         '''
         read the supplied region name, either printing to stdout or returning
         (headers, seqs) tuple depending on as_fa value
@@ -59,7 +61,7 @@ class Region_Reader():
         location = self.decode_region(region)
         return self.read_location(location)
 
-    def read_location(self, location):
+    def read_location(self, location: int):
         '''
         helper method used in extract_region for directly handling locations
         '''
@@ -75,7 +77,7 @@ class Region_Reader():
         else:
             self.print_region(location)
 
-    def convert_region(self, region_name):
+    def convert_region(self, region_name: str) -> int:
         '''
         Checks that region is a digit that starts with r
         If so, returns the integer value of the region for decoding
@@ -87,7 +89,7 @@ class Region_Reader():
             raise ValueError(f'{region_name} could not be parsed')
         return int(r)
 
-    def decode_region(self, region_number):
+    def decode_region(self, region_number: int) -> int:
         '''
         Convert region to disk location.
         Raises key error if region doesn't exist
@@ -99,7 +101,7 @@ class Region_Reader():
 
         return result
 
-    def yield_fa(self, keys=None):
+    def yield_fa(self, keys=None) -> Tuple[str, List[str], List[List[str]]]:
         '''
         repeatedly yield tuples of region, headers, sequences from fa file
         assumes file position starts at header for region
@@ -118,7 +120,7 @@ class Region_Reader():
             except ValueError:
                 break
 
-    def encode_fa(self, location):
+    def encode_fa(self, location: int) -> Tuple[List[str], List[List[str]]]:
         '''
         Reads the region file entry and returns headers, seqs
         Assumes even numbered lines are headers, odd are sequences
@@ -136,7 +138,7 @@ class Region_Reader():
 
         return headers, np.asarray(seqs)
 
-    def print_region(self, location):
+    def print_region(self, location: int) -> None:
         '''
         reads the region file entry, printing to stdout
         '''

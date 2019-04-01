@@ -17,7 +17,22 @@ import bisect
 import pickle
 
 
-def main():
+def main() -> None:
+    '''
+    Summarize region quality of each region
+    First parameter is the species to process
+    Input files:
+    -blocks_{species}_labeled.txt
+    -{species}_chr_intervals.txt
+    -{species}_chr_mafft.fa
+    -{species}_chr_mafft.fa
+
+    Output files:
+    -positions_{tag}.txt.gz
+    -regions file as {species}.fa.gz
+    -index file for the fz.gz
+    -blocks_{species}_quality.txt
+    '''
 
     args = predict.process_predict_args(sys.argv[2:])
 

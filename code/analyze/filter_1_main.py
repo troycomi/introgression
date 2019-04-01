@@ -21,6 +21,14 @@ from misc.region_reader import Region_Reader
 def main() -> None:
     '''
     Perform first step of filtering
+    Input files:
+    -blocks_{species}_quality.txt
+
+    Output files:
+    -blocks_{species}_filtered1intermediate.txt
+    -blocks_{species}_filtered1.txt
+    -regions/{species}.fa.gz
+    -regions/{species}.pkl
     '''
     args = predict.process_predict_args(sys.argv[1:])
     out_dir = gp.analysis_out_dir_absolute + args['tag']

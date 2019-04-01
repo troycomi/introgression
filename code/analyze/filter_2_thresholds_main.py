@@ -23,7 +23,17 @@ thresholds = [.999, .995, .985, .975, .965, .955, .945,
 # thresholds = [1]
 
 
-def main():
+def main() -> None:
+    '''
+    Perform second stage of filtering with several threshold levels
+    Input files:
+    -blocks_{species}_filtered1.txt
+    -regions/{species}.fa.gz
+    -regions/{species}.pkl
+
+    Output files:
+    -filter_2_thresholds.txt
+    '''
     args = predict.process_predict_args(sys.argv[1:])
     out_dir = gp.analysis_out_dir_absolute + args['tag']
 

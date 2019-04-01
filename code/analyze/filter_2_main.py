@@ -21,6 +21,14 @@ from misc.region_reader import Region_Reader
 def main() -> None:
     '''
     Perform second stage of filtering
+    Input files:
+    -blocks_{species}_filtered1.txt
+    regions/{species}.fa.gz
+    regions/{species}.pkl
+
+    Output files:
+    -blocks_{species}_filtered2.txt
+    -blocks_{species}_filtered2intermediate.txt
     '''
     args = predict.process_predict_args(sys.argv[2:])
     threshold = float(sys.argv[1])

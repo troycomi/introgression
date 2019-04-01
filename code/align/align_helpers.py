@@ -1,12 +1,24 @@
 import os
 import global_params as gp
+from typing import List, Tuple
 
 
-def flatten(l):
+def flatten(l: List[List]) -> List:
+    '''
+    Flatten list of lists into a single list
+    '''
     return [item for sublist in l for item in sublist]
 
 
-def get_strains(dirs):
+def get_strains(dirs: List[str]) -> List[Tuple[str, str]]:
+    '''
+    Find all strains in the provided list of directories
+    Returns a sorted list of tuples with (strain_name, directory) entries
+    Checks for files with the fasta_suffix and contain _chr
+    strain_name is the name of the file up to _chr.
+    Raises assertion error if the number of files found is < number of strains
+    * the number of chromosomes
+    '''
     # get all non-reference strains of cerevisiae and paradoxus; could
     # generalize this someday...
 
@@ -15,10 +27,11 @@ def get_strains(dirs):
     for d in dirs:
         fns = os.listdir(d)
         # only look at fasta files in the directory
-        fns = filter(lambda x: x.endswith(gp.fasta_suffix), fns)
         # only look at files containing '_chr' which should be chromosome
         # sequence files
-        fns = list(filter(lambda x: '_chr' in x, fns))
+        fns = list(
+            filter(lambda x: x.endswith(gp.fasta_suffix) and '_chr' in x,
+                   fns))
         num_files = len(fns)
         if num_files == 0:
             print(f'found no chromosome sequence files in {d} '
@@ -33,7 +46,13 @@ def get_strains(dirs):
     return sorted(s)
 
 
-def concatenate_fasta(input_files, names, output_file):
+def concatenate_fasta(input_files: List[str],
+                      names: List[str],
+                      output_file: str) -> None:
+    '''
+    Combines several fasta files together into a single output
+    Adds header between each input fasta as > name[i] filename
+    '''
     with open(output_file, 'w') as output:
         for i, file in enumerate(input_files):
             with open(file, 'r') as input:

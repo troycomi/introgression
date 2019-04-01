@@ -1,9 +1,24 @@
 import gzip
-import io
+from typing import List, Dict, Tuple
 
 
-def read_table_rows(fn, sep, header=True, key_ind=0):
-    # returns dictionary of rows keyed by first item in row
+def read_table_rows(fn: str,
+                    sep: str,
+                    header: bool = True,
+                    key_ind: int = 0) -> Tuple[
+                        Dict[str, Dict[str, List[str]]],
+                        List[str]]:
+    '''
+    Read the text file of tabular data by rows
+    fn: filename to read
+    sep: the column delimiter
+    header: flag to indicate a header is present
+     If a header is provided, labels are returned from the first row.
+     Return value becomes a dictionary of dictionaries, keyed first
+     by the key_ind, then the column label
+    key_ind: the column index to use as keys in output
+    returns dictionary of rows keyed by key_ind and labels
+    '''
 
     reader = None
     if fn.endswith('.gz'):
@@ -31,7 +46,10 @@ def read_table_rows(fn, sep, header=True, key_ind=0):
     return table, labels
 
 
-def read_table_columns(fn, sep, group_by=None, **filter_output):
+def read_table_columns(fn: str,
+                       sep: str,
+                       group_by: str = None,
+                       **filter_output) -> Tuple[Dict, List[str]]:
     '''
     Reads sep delimited file to generate dictionary of columns, keyed by labels
     Optionally, a column to group by can be specified, changing the return

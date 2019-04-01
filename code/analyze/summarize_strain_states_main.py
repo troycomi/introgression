@@ -6,7 +6,17 @@ import global_params as gp
 from misc import read_table
 
 
-def main():
+def main() -> None:
+    '''
+    Generate summary information for the state of each position in the sequence
+    Input files:
+    -blocks_{species}_filtered1intermediate.txt
+    -blocks_{species}_filtered2intermediate.txt
+    -100_genomes_info.txt
+
+    Output files:
+    -state_counts_by_strain.txt
+    '''
     args = predict.process_predict_args(sys.argv[1:])
 
     d = defaultdict(lambda: defaultdict(int))

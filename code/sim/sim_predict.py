@@ -2,6 +2,7 @@ import copy
 import itertools
 from sim import sim_process
 import global_params as gp
+from typing import List
 
 def process_args(arg_list, sim_args, i=1):
     
@@ -419,7 +420,10 @@ def initial_hmm_parameters(seqs_coded, species_to_indices, species_to, \
     return p['init'], p['emis'], p['trans']
 
 
-def convert_predictions(path, states):
+def convert_predictions(path: List[int], states: List[str]):
+    '''
+    Convert a path of index values into strings based on the states list
+    '''
     return [states[p] for p in path]
 
 

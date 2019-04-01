@@ -2,6 +2,8 @@ import bisect
 import global_params as gp
 from misc import binary_search
 import numpy as np
+from typing import List, Tuple, Dict
+
 
 cen_starts = [151465, 238207, 114385, 449711, 151987, 148510,
               496920, 105586, 355629, 436307, 440129, 150828,
@@ -51,6 +53,7 @@ def distance_from_telomere(start, end, chrm):
     # region overlaps centromere: return minimum distance from either telomere
     return min(start - tel_left_ends[i], tel_right_starts[i] - end)
 
+
 def distance_from_centromere(start, end, chrm):
 
     assert start <= end, str(start) + ' ' + str(end)
@@ -65,13 +68,15 @@ def distance_from_centromere(start, end, chrm):
     # region overlaps centromere: return 0
     return 0
 
+
 def write_region_summary_plus(fn, regions, fields):
     f = open(fn, 'w')
     f.write('region_id\t' + '\t'.join(fields) + '\n')
     keys = sorted(regions.keys(), key=lambda x: int(x[1:]))
     for region_id in keys:
         f.write(region_id + '\t')
-        f.write('\t'.join([str(regions[region_id][field]) for field in fields]))
+        f.write('\t'.join([str(regions[region_id][field])
+                           for field in fields]))
         f.write('\n')
     f.close()
 
@@ -84,6 +89,7 @@ def gap_columns(seqs):
                 g += 1
                 break
     return g
+
 
 def longest_consecutive(s, c):
     max_consecutive = 0
@@ -123,6 +129,7 @@ def masked_columns(seqs):
                 mask_non_gap_total += 1
     return mask_total, mask_non_gap_total
 
+
 def index_by_reference(ref_seq, seq):
     # return dictionary keyed by reference index, with value the
     # corresponding index in non-reference sequence
@@ -139,9 +146,12 @@ def index_by_reference(ref_seq, seq):
     return d
 
 
-def index_alignment_by_reference(ref_seq):
-    # want a way to go from reference sequence coordinate to index in
-    # alignment
+def index_alignment_by_reference(ref_seq: np.array) -> np.array:
+    '''
+    Find locations of non-gapped sites in reference sequence
+    want a way to go from reference sequence coordinate to index in
+    alignment
+    '''
     return np.where(ref_seq != gp.gap_symbol)[0]
 
 
@@ -152,25 +162,54 @@ def num_sites_between(sites, start, end):
     return j - i, sites[i:j]
 
 
-def read_masked_intervals(fn):
-    with open(fn, 'r') as reader:
+def read_masked_intervals(filename: str) -> List[Tuple[int, int]]:
+    '''
+    Read the interval file provided and return start and end sequences
+    as a list of tuples of 2 ints
+    '''
+    with open(filename, 'r') as reader:
         reader.readline()  # header
-        ints = []
+        intervals = []
         for line in reader:
             line = line.split()
-            ints.append((int(line[0]), int(line[2])))
+            intervals.append((int(line[0]), int(line[2])))
 
-    return ints
+    return intervals
 
 
-def convert_intervals_to_sites(ints):
+def convert_intervals_to_sites(intervals: List[Tuple[int, int]]) -> np.array:
+    '''
+    Given a list of start, end positions, returns a 1D np.array of all sites
+    contined in the intervals List
+    convert_intervals_to_sites([(1, 2), (4, 6)]) -> [1, 2, 4, 5, 6]
+    '''
     sites = []
-    for start, end in ints:
+    for start, end in intervals:
         sites += range(start, end + 1)
     return np.array(sites)
 
 
-def seq_id_hmm(seq1, seq2, offset, include_sites):
+def seq_id_hmm(seq1: np.array,
+               seq2: np.array,
+               offset: int,
+               include_sites: List[int]) -> Tuple[
+                   int, int, Dict[str, List[bool]]]:
+    '''
+    Compare two sequences and provide statistics of their overlap considering
+    only the included sites.
+    Takes the two sequences to consider, an offset of the included sites,
+    and a list of the included sites.
+    Returns:
+    -the total number of matching sites, where seq1[i] == seq2[i] and 
+     i is an element in included_sites - offset
+    -the total number of sites considered in the included sites, e.g. where
+     included_sites - offset >= 0 and < len(seq)
+    -a dict with the following keys:
+     -gap_flag: true where seq1 or seq1 == gap_symbol
+     -unseq_flag: true where seq1 or seq1 == unsequenced_symbol
+     -hmm_flag: true where hmm_flag[i] is in included_sites - offset
+     -match: true where seq1 == seq2, regardless of symbol
+    '''
     sites = np.array(include_sites) - offset
 
     info_gap = np.logical_or(seq1 == gp.gap_symbol,
@@ -198,11 +237,25 @@ def seq_id_hmm(seq1, seq2, offset, include_sites):
          'hmm_flag': info_hmm, 'match': info_match}
 
 
-def seq_id_unmasked(seq1, seq2, offset, exclude_sites1, exclude_sites2):
-    # total_sites is number of sites at which neither sequence is
-    # masked or has a gap or unsequenced character; total_match is the
-    # number of those sites at which the two sequences match
-    # gapped and unsequenced locations
+def seq_id_unmasked(seq1: np.array,
+                    seq2: np.array,
+                    offset: int,
+                    exclude_sites1: List[int],
+                    exclude_sites2: List[int]) -> Tuple[
+                        int, int, Dict[str, List[bool]]]:
+    '''
+    Compare two sequences and provide statistics of their overlap considering
+    only the included sites.
+    Takes two sequences, an offset applied to each excluded sites list
+    Returns:
+     -total number of matching sites in non-excluded sites. A position is
+      excluded if it is an element of either excluded site list - offset,
+      or it is a gap or unsequenced symbol in either sequence.
+     -total number of non-excluded sites
+     A dict with the following keys:
+      -mask_flag: a boolean array that is true if the position is in
+       either excluded list - offset
+    '''
     info_gap = np.logical_or(seq1 == gp.gap_symbol,
                              seq2 == gp.gap_symbol)
     info_unseq = np.logical_or(seq1 == gp.unsequenced_symbol,
@@ -237,44 +290,26 @@ def seq_id_unmasked(seq1, seq2, offset, exclude_sites1, exclude_sites2):
 
     return total_match, total_sites, {'mask_flag': info_mask}
 
-    n = len(seq1)
-    total_sites = 0
-    total_match = 0
 
-    skip = [gp.gap_symbol, gp.unsequenced_symbol]
-    info_mask = [False for i in range(n)]
-    for i in range(n):
-
-        if binary_search.present(exclude_sites1, i + offset) or \
-           binary_search.present(exclude_sites2, i + offset):
-            info_mask[i] = True
-            continue
-        if seq1[i] not in skip and seq2[i] not in skip:
-            total_sites += 1
-            if seq1[i] == seq2[i]:
-                total_match += 1
-
-    # TODO: keep track of gapped/masked sites for master/predicted to
-    # incorporate into info string later
-    return total_match, total_sites, {'mask_flag': info_mask}
-
-
-def make_info_string_unknown(info, master_ind):
-
-    # used with indices to decode result
-    decoder = np.array(list('Xx._-'))
-    indices = np.zeros(info['gap_any_flag'].shape, int)
-
-    indices[info['match_flag'][:, master_ind]] = 1  # x
-    matches = np.all(info['match_flag'], axis=1)
-    indices[matches] = 2  # .
-    indices[info['mask_any_flag']] = 3  # _
-    indices[info['gap_any_flag']] = 4  # -
-
-    return ''.join(decoder[indices])
-
-
-def make_info_string(info, master_ind, predict_ind):
+def make_info_string(info: Dict[str, List[bool]],
+                     master_ind: int,
+                     predict_ind: int) -> str:
+    '''
+    Summarize info dictionary into a string. master_ind is the index of
+    the master reference state. predict_ind is the index of the predicted 
+    state.  The return string is encoded as each position as:
+     '-': if either master or predict has a gap
+     '_': if either master or predict is masked
+     '.': if any state has a match
+     'b': both predict and master match
+     'c': master matches but not predict
+     'p': predict matches but not master
+     'x': no other condition applies
+     if the position is in the hmm_flag it will be capitalized for x, p, c, or
+     b
+    in order of precidence, e.g. if a position satisfies both '-' and '.',
+    it will be '-'.
+    '''
 
     if predict_ind >= info['match_flag'].shape[1]:
         return make_info_string_unknown(info, master_ind)
@@ -294,5 +329,33 @@ def make_info_string(info, master_ind, predict_ind):
     indices[np.any(
         info['gap_flag'][:, [master_ind, predict_ind]],
         axis=1)] = 10  # -
+
+    return ''.join(decoder[indices])
+
+
+def make_info_string_unknown(info: Dict[str, List[bool]],
+                             master_ind: int) -> str:
+    '''
+    Summarize info dictionary into a string for unknown state.
+    master_ind is the index of the master reference state.
+    The return string is encoded as each position as:
+     '-': if any state has a gap
+     '_': if any state has a mask
+     '.': all states match
+     'x': master matches
+     'X': no other condition applies
+    in order of precidence, e.g. if a position satisfies both '-' and '.',
+    it will be '-'.
+    '''
+
+    # used with indices to decode result
+    decoder = np.array(list('Xx._-'))
+    indices = np.zeros(info['gap_any_flag'].shape, int)
+
+    indices[info['match_flag'][:, master_ind]] = 1  # x
+    matches = np.all(info['match_flag'], axis=1)
+    indices[matches] = 2  # .
+    indices[info['mask_any_flag']] = 3  # _
+    indices[info['gap_any_flag']] = 4  # -
 
     return ''.join(decoder[indices])

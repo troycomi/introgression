@@ -7,8 +7,20 @@ from sim import sim_process
 from align import align_helpers
 from misc import read_fasta
 
-# read in analysis parameters
 
+'''
+Predict states from aligned sequences
+Input files:
+-refs_{strain}_chr{chromosome}_mafft.fa
+
+Output files:
+-blocks{species}.txt
+-hmm_init.txt
+-hmm.txt
+-positions.txt
+-probs.txt
+'''
+# read in analysis parameters
 args = predict.process_predict_args(sys.argv[1:])
 
 strain_dirs = align_helpers.get_strains(

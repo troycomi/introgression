@@ -1,6 +1,5 @@
 from misc import read_table
 from io import StringIO
-import pytest
 
 
 def test_read_table_rows_empty(mocker):
@@ -20,8 +19,6 @@ def test_read_table_rows_empty(mocker):
 
     def return_args(arg):
         return arg
-    mocker.patch('misc.read_table.io.BufferedReader',
-                 side_effect=return_args)
 
     d, labels = read_table.read_table_rows('mocked.gz', '\t', False)
     mocked_gz.assert_called_with('mocked.gz', 'rt')
@@ -113,8 +110,6 @@ def test_read_table_columns_empty(mocker):
 
     def return_args(arg):
         return arg
-    mocker.patch('misc.read_table.io.BufferedReader',
-                 side_effect=return_args)
 
     d, labels = read_table.read_table_columns('mocked.gz', '\t')
     mocked_gz.assert_called_with('mocked.gz', 'rt')
