@@ -84,9 +84,6 @@ def test_passes_filters():
 
 
 def test_passes_filters1(mocker):
-    mocker.patch('analyze.filter_helpers.gp.alignment_ref_order',
-                 ['ref'])
-
     # fail fraction gapped on reference
     region = {'predicted_species': 'pred',
               'start': 0,
@@ -99,7 +96,7 @@ def test_passes_filters1(mocker):
               'num_sites_nongap_ref': 0,
               }
 
-    assert filter_helpers.passes_filters1(region, '') == \
+    assert filter_helpers.passes_filters1(region, '', 'ref') == \
         (False, 'fraction gaps/masked in master = 0.6')
 
     # fail fraction gapped on predicted
@@ -114,7 +111,7 @@ def test_passes_filters1(mocker):
               'num_sites_nongap_ref': 0,
               }
 
-    assert filter_helpers.passes_filters1(region, '') == \
+    assert filter_helpers.passes_filters1(region, '', 'ref') == \
         (False, 'fraction gaps/masked in predicted = 0.7')
 
     # fail match counts
@@ -129,9 +126,10 @@ def test_passes_filters1(mocker):
               'num_sites_nongap_ref': 0,
               }
 
-    assert filter_helpers.passes_filters1(region, 'CP') == \
+    assert filter_helpers.passes_filters1(region, 'CP', 'ref') == \
         (False, 'count_P = 1')
-    assert filter_helpers.passes_filters1(region, 'CCCCCCCCPPPPPPP') == \
+    assert filter_helpers.passes_filters1(region,
+                                          'CCCCCCCCPPPPPPP', 'ref') == \
         (False, 'count_P = 7 and count_C = 8')
 
     # fail divergence, master >= pred
@@ -146,7 +144,7 @@ def test_passes_filters1(mocker):
               'num_sites_nongap_ref': 10,
               }
 
-    assert filter_helpers.passes_filters1(region, 'CPPPPPPP') == \
+    assert filter_helpers.passes_filters1(region, 'CPPPPPPP', 'ref') == \
         (False, 'id with master = 0.6 and id with predicted = 0.5')
 
     # fail divergence, master >= 0.7
@@ -161,7 +159,7 @@ def test_passes_filters1(mocker):
               'num_sites_nongap_ref': 10,
               }
 
-    assert filter_helpers.passes_filters1(region, 'CPPPPPPP') == \
+    assert filter_helpers.passes_filters1(region, 'CPPPPPPP', 'ref') == \
         (False, 'id with master = 0.6')
 
     # passes
@@ -176,13 +174,11 @@ def test_passes_filters1(mocker):
               'num_sites_nongap_ref': 10,
               }
 
-    assert filter_helpers.passes_filters1(region, 'CPPPPPPP') == \
+    assert filter_helpers.passes_filters1(region, 'CPPPPPPP', 'ref') == \
         (True, '')
 
 
 def test_passes_filters2(mocker):
-    mocker.patch('analyze.filter_helpers.gp.alignment_ref_order',
-                 ['ref', '1', '2', '3', '4'])
     mocker.patch('analyze.filter_helpers.gp.gap_symbol', '-')
     mocker.patch('analyze.filter_helpers.gp.unsequenced_symbol', 'n')
 
@@ -197,7 +193,7 @@ def test_passes_filters2(mocker):
 
     threshold = 0
     filt, states, ids, p_count = filter_helpers.passes_filters2(
-        region, seqs, threshold)
+        region, seqs, threshold, ['ref', '1', '2', '3', '4'])
     assert filt is False
     assert states == ['1', '2', '4']
     assert ids == [0.8, 0.5, 0.4]
@@ -205,7 +201,7 @@ def test_passes_filters2(mocker):
 
     threshold = 0.1
     filt, states, ids, p_count = filter_helpers.passes_filters2(
-        region, seqs, threshold)
+        region, seqs, threshold, ['ref', '1', '2', '3', '4'])
     assert filt is False
     assert states == ['1', '2']
     assert ids == [0.8, 0.5]
@@ -213,7 +209,7 @@ def test_passes_filters2(mocker):
 
     threshold = 0.9
     filt, states, ids, p_count = filter_helpers.passes_filters2(
-        region, seqs, threshold)
+        region, seqs, threshold, ['ref', '1', '2', '3', '4'])
     assert filt is True
     assert states == ['1']
     assert ids == [0.8]
@@ -221,8 +217,6 @@ def test_passes_filters2(mocker):
 
 
 def test_passes_filters2_on_region(mocker):
-    mocker.patch('analyze.filter_helpers.gp.alignment_ref_order',
-                 ['S288c', 'CBS432', 'N_45', 'DBVPG6304', 'UWOPS91_917_1'])
     mocker.patch('analyze.filter_helpers.gp.gap_symbol', '-')
     mocker.patch('analyze.filter_helpers.gp.unsequenced_symbol', 'n')
 
@@ -232,7 +226,8 @@ def test_passes_filters2_on_region(mocker):
         headers, seqs = read_fasta.read_fasta(fa, gz=False)
         seqs = seqs[:-1]
         p, alt_states, alt_ids, alt_P_counts = filter_helpers.passes_filters2(
-            {'predicted_species': 'N_45'}, seqs, 0.1)
+            {'predicted_species': 'N_45'}, seqs, 0.1,
+            ['S288c', 'CBS432', 'N_45', 'DBVPG6304', 'UWOPS91_917_1'])
         assert p is False
         assert alt_states == ['CBS432', 'N_45', 'UWOPS91_917_1', 'DBVPG6304']
         assert alt_ids == approx([0.9983805668016195, 0.994331983805668,
@@ -240,7 +235,8 @@ def test_passes_filters2_on_region(mocker):
         assert alt_P_counts == [145, 143, 128, 129]
 
         p, alt_states, alt_ids, alt_P_counts = filter_helpers.passes_filters2(
-            {'predicted_species': 'N_45'}, seqs, 0.98)
+            {'predicted_species': 'N_45'}, seqs, 0.98,
+            ['S288c', 'CBS432', 'N_45', 'DBVPG6304', 'UWOPS91_917_1'])
         assert p is False
         assert alt_states == ['CBS432', 'N_45']
         assert alt_ids == approx([0.9983805668016195, 0.994331983805668])

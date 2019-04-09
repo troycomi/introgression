@@ -323,7 +323,7 @@ def initial_hmm_parameters(seq: np.array,
                            known_states: List[str],
                            unknown_states: List[str],
                            expected_frac: Dict,
-                           expected_tract_lengths: Dict) -> hmm_bw.HMM:
+                           expected_lengths: Dict) -> hmm_bw.HMM:
     '''
     Build a HMM object initialized based on expected values and provided data
     '''
@@ -340,7 +340,7 @@ def initial_hmm_parameters(seq: np.array,
                                   unknown_states,
                                   symbol_freqs.keys())
     trans = transition_probabilities(known_states, unknown_states,
-                                     expected_frac, expected_length)
+                                     expected_frac, expected_lengths)
 
     # new Hidden Markov Model
     hmm = hmm_bw.HMM()
@@ -431,7 +431,6 @@ def predict_introgressed(ref_seqs: np.array,
         return predicted, p[0], hmm, hmm_init, positions
 
 
-# TODO is there another convert to blocks (one)?
 def convert_to_blocks(state_seq: List[str],
                       states: List[str]) -> Dict[
                           str, List[Tuple[int, int]]]:

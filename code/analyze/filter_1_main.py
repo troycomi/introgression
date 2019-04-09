@@ -63,7 +63,7 @@ def main() -> None:
                 # S288c
                 p, reason = passes_filters1(region,
                                             info_string,
-                                            args['known_state'][0])
+                                            args['known_states'][0])
                 region['reason'] = reason
                 write_filtered_line(f_out1i, region_id, region, fields1i)
 

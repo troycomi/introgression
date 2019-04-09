@@ -11,9 +11,6 @@ def test_main(mocker, capsys):
     mocker.patch(
         'analyze.summarize_strain_states_main.gp.analysis_out_dir_absolute',
         '/dir')
-    mocker.patch(
-        'analyze.summarize_strain_states_main.gp.alignment_ref_order',
-        ['state1', 'state2', 'state3'])
 
     mock_read = mocker.patch(
         'analyze.summarize_strain_states_main.read_table.read_table_rows',

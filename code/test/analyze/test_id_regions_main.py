@@ -4,14 +4,19 @@ from operator import itemgetter
 
 def test_main_blank(mocker):
     # setup global params to match expectations
-    mocker.patch('analyze.predict.gp.alignment_ref_order',
-                 ['ref', 'state1'])
     mocker.patch('analyze.id_regions_main.gp.chrms',
                  ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX',
                   'X', 'XI', 'XII', 'XIII', 'XIV', 'XV', 'XVI'])
     mocker.patch('analyze.id_regions_main.gp.analysis_out_dir_absolute',
                  'dir/')
-
+    mocker.patch(
+        'analyze.summarize_strain_states_main.predict.process_predict_args',
+        return_value={
+            'known_states': ['S288c', 'CBS432', 'N_45',
+                             'DBVPG6304', 'UWOPS91_917_1'],
+            'states': ['ref', 'state1', 'unknown'],
+            'tag': 'tag'
+        })
     mocker.patch('sys.argv',
                  "test.py tag .001 viterbi 1000 .025 unknown 1000 .01".split())
     mocker.patch('analyze.predict.read_blocks',
@@ -36,8 +41,12 @@ def test_main_blank(mocker):
 
 def test_main(mocker):
     # setup global params to match expectations
-    mocker.patch('analyze.predict.gp.alignment_ref_order',
-                 ['ref', 'state1'])
+    mocker.patch(
+        'analyze.summarize_strain_states_main.predict.process_predict_args',
+        return_value={
+            'states': ['ref', 'state1', 'unknown'],
+            'tag': 'tag'
+        })
     mocker.patch('analyze.id_regions_main.gp.chrms',
                  ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX',
                   'X', 'XI', 'XII', 'XIII', 'XIV', 'XV', 'XVI'])
@@ -72,10 +81,10 @@ def test_main(mocker):
 
     main.main()
 
-    assert mocked_file.call_count == 3
     mocked_file.assert_any_call('dir/tag/blocks_ref_tag_labeled.txt', 'w')
     mocked_file.assert_any_call('dir/tag/blocks_state1_tag_labeled.txt', 'w')
     mocked_file.assert_any_call('dir/tag/blocks_unknown_tag_labeled.txt', 'w')
+    assert mocked_file.call_count == 3
 
     # headers
     calls = [

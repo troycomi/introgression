@@ -45,8 +45,8 @@ def test_main(mocker, capsys):
     assert mock_filter.call_count == 2
     # seems like this references the object, which changes after call
     mock_filter.assert_has_calls([
-        mocker.call({'reason': 'test'}, 'x..'),
-        mocker.call({'reason': '', 'a': 1}, 'x..')])
+        mocker.call({'reason': 'test'}, 'x..', 'state1'),
+        mocker.call({'reason': '', 'a': 1}, 'x..', 'state1')])
 
     assert mock_write.call_count == 3
     mock_write.assert_has_calls([

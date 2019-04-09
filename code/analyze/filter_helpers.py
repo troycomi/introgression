@@ -134,7 +134,6 @@ def passes_filters2(region: Dict,
     than one state for the region
     '''
 
-    refs = gp.alignment_ref_order
     s = region['predicted_species']
 
     ids = {}

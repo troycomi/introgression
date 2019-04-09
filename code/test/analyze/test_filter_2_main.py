@@ -54,13 +54,13 @@ def test_main(mocker, capsys):
             {'alternative_states': '1,2',
              'alternative_ids': '0.8,0.5',
              'alternative_P_counts': '2,1,0'},
-            ['atcg'], 0.1),
+            ['atcg'], 0.1, ['state1', 'state2']),
         mocker.call(
             {'a': 1,
              'alternative_states': '1',
              'alternative_ids': '0.8',
              'alternative_P_counts': '2'},
-            ['atcg'], 0.1)])
+            ['atcg'], 0.1, ['state1', 'state2'])])
 
     assert mock_write.call_count == 3
     mock_write.assert_has_calls([

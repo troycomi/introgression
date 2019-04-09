@@ -105,7 +105,7 @@ def main() -> None:
         [f'num_bases_{x}_filtered2_inclusive' for x in states] +\
         ['num_bases_total_filtered2_inclusive']
 
-    r = sorted(gp.alignment_ref_order[1:])
+    r = sorted(args['known_states'][1:])
     for n in range(2, len(r)+1):
         for combo in itertools.combinations(r, n):
             fields += ['num_bases_' + '_or_'.join(combo) + '_filtered2i']

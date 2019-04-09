@@ -7,6 +7,15 @@ def test_main(mocker):
     mocker.patch(
         'analyze.summarize_region_quality_main.gp.analysis_out_dir_absolute',
         'dir/')
+    mocker.patch(
+        'analyze.summarize_strain_states_main.predict.process_predict_args',
+        return_value={
+            'known_states': ['S288c', 'CBS432', 'N_45',
+                             'DBVPG6304', 'UWOPS91_917_1'],
+            'states': ['S288c', 'CBS432', 'N_45',
+                       'DBVPG6304', 'UWOPS91_917_1', 'unknown'],
+            'tag': 'tag'
+        })
     mocker.patch('analyze.summarize_region_quality_main.gp.chrms',
                  ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX',
                   'X', 'XI', 'XII', 'XIII', 'XIV', 'XV', 'XVI'])

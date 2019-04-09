@@ -18,13 +18,35 @@ def test_gp_symbols():
 
 @pytest.fixture
 def args():
-    args = predict.process_predict_args('p4e2 .001 viterbi 10000 .025 10000\
-                                         .025 10000 .025 10000 .025 unknown\
-                                         1000 .01'.split())
+    args = {}
+    args['tag'] = 'p4e2'
+    args['improvement_frac'] = 0.001
+    args['threshold'] = 'viterbi'
+
+    args['known_states'] = ['S288c', 'CBS432', 'N_45',
+                            'DBVPG6304', 'UWOPS91_917_1']
+    args['unknown_states'] = ['unknown']
+    args['states'] = args['known_states'] + ['unknown']
+
+    args['expected_frac'] = {'DBVPG6304': 0.025,
+                             'UWOPS91_917_1': 0.025,
+                             'unknown': 0.01,
+                             'CBS432': 0.025,
+                             'N_45': 0.025,
+                             'S288c': 0.89}
+
+    args['expected_length'] = {'DBVPG6304': 10000.0,
+                               'UWOPS91_917_1': 10000.0,
+                               'unknown': 1000.0,
+                               'CBS432': 10000.0,
+                               'N_45': 10000.0,
+                               'S288c': 0}
+    args['expected_num_tracts'] = {}
+    args['expected_bases'] = {}
     return args
 
 
-def test_process_predict_args():
+def old_test_process_predict_args():
     # test with default args
     args = predict.process_predict_args('p4e2 .001 viterbi 10000 .025 10000\
                                          .025 10000 .025 10000 .025 unknown\
@@ -44,7 +66,7 @@ def test_process_predict_args():
                                      'N_45': 0.025,
                                      'S288c': 0.89}
 
-    assert args['expected_tract_lengths'] == {'DBVPG6304': 10000.0,
+    assert args['expected_length'] == {'DBVPG6304': 10000.0,
                                               'UWOPS91_917_1': 10000.0,
                                               'unknown': 1000.0,
                                               'CBS432': 10000.0,
@@ -56,7 +78,7 @@ def test_process_predict_args():
     assert len(args.keys()) == 10
 
 
-def test_process_predict_args_threshold():
+def old_test_process_predict_args_threshold():
     args = predict.process_predict_args('p4e2 .001 test 10000 .025 10000\
                                          .025 10000 .025 10000 .025 unknown\
                                          1000 .01'.split())
@@ -68,7 +90,7 @@ def test_process_predict_args_threshold():
     assert args['threshold'] == 0.1
 
 
-def test_process_predict_args_exceptions():
+def old_test_process_predict_args_exceptions():
     # not enough unknown values
     with pytest.raises(IndexError):
         predict.process_predict_args('p4e2 .001 0.1 10000 .025 10000\
@@ -202,7 +224,7 @@ def test_poly_sites():
 
 
 def test_set_expectations_default(args):
-    prev_tract = dict(args['expected_tract_lengths'])
+    prev_tract = dict(args['expected_length'])
     assert args['expected_num_tracts'] == {}
     assert args['expected_bases'] == {}
     predict.set_expectations(args, 1e5)  # made number arbitrary
@@ -219,7 +241,7 @@ def test_set_expectations_default(args):
                                       'N_45': 0.025 * 1e5,
                                       'S288c': 1e5 - 1e4}
     prev_tract['S288c'] = 45000
-    assert args['expected_tract_lengths'] == prev_tract
+    assert args['expected_length'] == prev_tract
 
 
 def test_get_symbol_freqs():
@@ -382,11 +404,11 @@ def mynorm(d):
 
 
 def test_transition_probabilities(args):
-    args['expected_tract_lengths']['S288c'] = 45000
+    args['expected_length']['S288c'] = 45000
     trans = predict.transition_probabilities(args['known_states'],
                                              args['unknown_states'],
                                              args['expected_frac'],
-                                             args['expected_tract_lengths'])
+                                             args['expected_length'])
 
     np_trans = np_transition(args)
     for i in range(len(trans)):
@@ -396,7 +418,7 @@ def test_transition_probabilities(args):
 def np_transition(args):
     states = args['known_states'] + args['unknown_states']
     expected_frac = args['expected_frac']
-    expected_tract_lengths = args['expected_tract_lengths']
+    expected_length = args['expected_length']
     trans = []
     for i in range(len(states)):
         state_from = states[i]
@@ -405,9 +427,9 @@ def np_transition(args):
         for j in range(len(states)):
             state_to = states[j]
             if state_from == state_to:
-                trans[i].append(1 - 1./expected_tract_lengths[state_from])
+                trans[i].append(1 - 1./expected_length[state_from])
             else:
-                trans[i].append(1./expected_tract_lengths[state_from] *
+                trans[i].append(1./expected_length[state_from] *
                                 expected_frac[state_to] * scale_other)
 
         trans[i] /= np.sum(trans[i])
@@ -416,14 +438,14 @@ def np_transition(args):
 
 
 def test_initial_hmm_parameters(args):
-    args['expected_tract_lengths']['S288c'] = 45000
+    args['expected_length']['S288c'] = 45000
     symbols = predict.get_emis_symbols([1]*5)
     hm = predict.initial_hmm_parameters(
         symbols,
         args['known_states'],
         args['unknown_states'],
         args['expected_frac'],
-        args['expected_tract_lengths'])
+        args['expected_length'])
 
     assert args['expected_frac'] == {'DBVPG6304': 0.025,
                                      'UWOPS91_917_1': 0.025,
@@ -667,7 +689,7 @@ def test_convert_to_blocks_one():
         seq = [str(random.randint(0, 9)) for i in range(100)]
         help_test_convert_blocks(states, seq)
 
-        
+
 def help_test_convert_blocks(states, seq):
     blocks = predict.convert_to_blocks(seq, states)
 
