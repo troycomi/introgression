@@ -7,9 +7,24 @@ import predict
 import global_params as gp
 from misc import read_fasta
 
-# read in analysis parameters
 
-args = read_args.process_predict_args(sys.argv[1:])
+'''
+Predict states from aligned sequences
+Input files:
+-refs_{strain}_chr{chromosome}_mafft.fa
+
+Output files:
+-blocks{species}.txt
+-hmm_init.txt
+-hmm.txt
+-positions.txt
+-probs.txt
+'''
+# read in analysis parameters
+args = predict.process_predict_args(sys.argv[1:])
+
+strain_dirs = align_helpers.get_strains(
+    align_helpers.flatten(gp.non_ref_dirs.values()))
 
 ##======
 # output files and if and where to resume
@@ -53,12 +68,13 @@ probs_f = gzip.open(f'{base_dir}/probs_{args["tag"]}.txt.gz', 'wt')
 
 for chrm in gp.chrms:
 
-    for strain, strain_dir in args['setup_args']['strain_dirs']:
+    for strain, strain_dir in strain_dirs:
 
         print(f'working on: {strain} {chrm}')
 
         ref_prefix = '_'.join(args['known_states'])
-        fn = (f'{args["setup_args"]["alignments_directory"]}{ref_prefix}_{strain}'
+        fn = (f'{args["setup_args"]["alignments_directory"]}'
+              f'{ref_prefix}_{strain}'
               f'_chr{chrm}_mafft{gp.alignment_suffix}')
 
         if not os.path.exists(fn):

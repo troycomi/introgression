@@ -291,14 +291,16 @@ Initial State Probabilities:'''
         # Markov process was at state j at time t
         # returns array of size observations, observations[0], hidden_states
         # determine emission probabilities for each measured value
-        emis = np.transpose(np.log(self.emissions[:, self.observations]))
+        with np.errstate(divide='ignore'):
+            emis = np.transpose(np.log(self.emissions[:, self.observations]))
         trans = np.log(self.transitions)
         alpha = np.empty((len(self.observations),
                           len(self.observations[0]),
                           len(self.hidden_states)), float)
 
         # initialize to initial probabilitiy * observed emission
-        alpha[:, 0, :] = np.log(self.initial_p[None, :]) + emis[0, :, :]
+        with np.errstate(divide='ignore'):
+            alpha[:, 0, :] = np.log(self.initial_p[None, :]) + emis[0, :, :]
         # recursively fill array
         for i in range(1, len(self.observations[0])):
             alpha[:, i, :] = np.logaddexp.reduce(alpha[:, i-1, :][:, :, None] +
@@ -312,8 +314,9 @@ Initial State Probabilities:'''
         '''
         # probability that the sequence from t+1 to end was observed
         # and Markov process was at state j at time t
-        emis = np.transpose(np.log(self.emissions[:, self.observations]))
-        trans = np.log(self.transitions)
+        with np.errstate(divide='ignore'):
+            emis = np.transpose(np.log(self.emissions[:, self.observations]))
+            trans = np.log(self.transitions)
         beta = np.zeros((len(self.observations),
                          len(self.observations[0]),
                          len(self.hidden_states)), float)
@@ -337,12 +340,13 @@ Initial State Probabilities:'''
                            len(self.hidden_states)), int)
 
         # build array of emissions based on observations
-        emissions = np.log(np.transpose(self.emissions)[self.observations])
+        with np.errstate(divide='ignore'):
+            emissions = np.log(np.transpose(self.emissions)[self.observations])
 
-        trans_emis = np.log(self.transitions[None, :, :]) +\
-            emissions[:, None, :]
+            trans_emis = np.log(self.transitions[None, :, :]) +\
+                emissions[:, None, :]
 
-        probabilities[0, :] = np.log(self.initial_p) + emissions[0]
+            probabilities[0, :] = np.log(self.initial_p) + emissions[0]
         states[0, :] = -1
 
         for i in range(1, len(emissions)):

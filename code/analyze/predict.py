@@ -8,9 +8,74 @@ from sim import sim_process
 import global_params as gp
 from misc import read_fasta
 import numpy as np
+from typing import List, Dict, Tuple, TextIO
 
-def read_aligned_seqs(fn, strain):
-    headers, seqs = read_fasta.read_fasta(fn)
+
+def process_predict_args(arg_list: List[str]) -> Dict:
+    '''
+    Parses arguments from argv, producing dictionary of parsed values
+    '''
+
+    d = {}
+    i = 0
+
+    d['tag'] = arg_list[i]
+    i += 1
+
+    d['improvement_frac'] = float(arg_list[i])
+    i += 1
+
+    d['threshold'] = 'viterbi'
+    try:
+        d['threshold'] = float(arg_list[i])
+    except ValueError:
+        pass
+    i += 1
+
+    # expected length of introgressed tracts and fraction of sequence
+    # introgressed
+    expected_tract_lengths = {}
+    expected_frac = {}
+
+    d['known_states'] = gp.alignment_ref_order
+    for ref in gp.alignment_ref_order[1:]:
+        expected_tract_lengths[ref] = float(arg_list[i])
+        i += 1
+        expected_frac[ref] = float(arg_list[i])
+        i += 1
+
+    d['unknown_states'] = []
+    while i < len(arg_list):
+        state = arg_list[i]
+        d['unknown_states'].append(state)
+        i += 1
+        expected_tract_lengths[state] = float(arg_list[i])
+        i += 1
+        expected_frac[state] = float(arg_list[i])
+        i += 1
+
+    d['states'] = d['known_states'] + d['unknown_states']
+
+    expected_frac[d['states'][0]] = 0
+    expected_frac[d['states'][0]] = 1 - sum(expected_frac.values())
+    d['expected_frac'] = expected_frac
+
+    # calculate these based on remaining bases, but after we know
+    # which chromosome we're looking at
+    expected_tract_lengths[d['states'][0]] = 0
+    d['expected_tract_lengths'] = expected_tract_lengths
+    d['expected_num_tracts'] = {}
+    d['expected_bases'] = {}
+
+    return d
+
+
+def read_aligned_seqs(fast_file: str,
+                      strain: str) -> Tuple[np.array, np.array]:
+    '''
+    Read fasta file, returning sequences of references and the specied strain
+    '''
+    headers, seqs = read_fasta.read_fasta(fast_file)
     d = {}
     for i in range(len(seqs)):
         name = headers[i][1:].split(' ')[0]
@@ -24,7 +89,13 @@ def read_aligned_seqs(fn, strain):
     return ref_seqs, predict_seq
 
 
-def set_expectations(args, n):
+def set_expectations(args: Dict, n: int) -> None:
+    '''
+    sets expected number of tracts and bases for each reference
+    based on expected length of introgressed tracts and expected
+    total fraction of genome
+    also takes n, length of the sequence to analyze
+    '''
 
     species_to = args['known_states'][0]
     species_from = args['known_states'][1:]
@@ -35,7 +106,7 @@ def set_expectations(args, n):
         args['expected_num_tracts'][s] = \
             args['expected_frac'][s] * n / args['expected_length'][s]
         args['expected_bases'][s] = args['expected_num_tracts'][s] * \
-                                    args['expected_length'][s]
+            args['expected_length'][s]
 
     args['expected_bases'][species_to] = \
         n - sum([args['expected_bases'][s] for s in species_from])
@@ -44,10 +115,20 @@ def set_expectations(args, n):
         sum([args['expected_num_tracts'][s] for s in species_from]) + 1
 
     args['expected_length'][species_to] = \
-        args['expected_bases'][species_to] / args['expected_num_tracts'][species_to]
+        args['expected_bases'][species_to] /\
+        args['expected_num_tracts'][species_to]
 
 
-def ungap_and_code(predict_seq, ref_seqs, index_ref=0):
+def ungap_and_code(predict_seq: str,
+                   ref_seqs: List[str],
+                   index_ref: int = 0) -> Tuple[np.array, np.array]:
+    '''
+    Remove any sequence locations where a gap is present and code
+    into matching or mismatching sequence
+    Returns the coded sequences, by default an array of + where matching, -
+    where mismatching.  Also return the positions where the sequences are not
+    gapped.
+    '''
     # index_ref is index of reference strain to index relative to
     # build character array
     sequences = np.array([list(predict_seq)] +
@@ -68,27 +149,40 @@ def ungap_and_code(predict_seq, ref_seqs, index_ref=0):
                        gp.match_symbol,
                        gp.mismatch_symbol)
 
-    # 1: indexing removes currently examined sequence
-    matches = [''.join(row)
-               for row in np.transpose(matches[:, np.all(isvalid, axis=0)])]
+    matches = np.fromiter((''.join(row)
+                           for row in np.transpose(
+                               matches[:, np.all(isvalid, axis=0)])),
+                          dtype=f'U{len(sequences) - 1}')
 
-    # NOTE list is for unit test comparisons
     return matches, positions
 
 
-def poly_sites(sequences, positions):
+def poly_sites(sequences: np.array,
+               positions: np.array) -> Tuple[np.array, np.array]:
+    '''
+    Remove all sequences where the sequence is all match_symbol
+    Returns the filtered sequence and position
+    '''
     seq_len = len(sequences[0])
     # check if seq only contains match_symbol
     retain = np.vectorize(
         lambda x: x.count(gp.match_symbol) != seq_len)(sequences)
     indices = np.where(retain)[0]
-    ps_poly = [positions[i] for i in indices]
-    seq_poly = [sequences[i] for i in indices]
+
+    ps_poly = positions[indices]
+    seq_poly = sequences[indices]
 
     return seq_poly, ps_poly
 
 
-def get_symbol_freqs(sequence):
+def get_symbol_freqs(sequence: np.array) -> Tuple[Dict, Dict, List]:
+    '''
+    Calculate metrics from the provided, coded sequence
+    Returns:
+    the fraction matching for each species
+    the fraction of each matching pattern (e.g. +--++)
+    the weighted fraction of matches for each species
+    '''
 
     individual = []
     weighted = []
@@ -115,8 +209,15 @@ def get_symbol_freqs(sequence):
     return individual, symbols, weighted
 
 
-def initial_probabilities(known_states, unknown_states,
-                          expected_frac, weighted_match_freqs):
+def initial_probabilities(known_states: List[str],
+                          unknown_states: List[str],
+                          expected_frac: Dict,
+                          weighted_match_freqs: List[float]) -> np.array:
+    '''
+    Estimate the initial probability of being in each state
+    based on the number of states and their expected fractions
+    Returns the initial probability of each state
+    '''
 
     init = []
     expectation_weight = .9
@@ -133,7 +234,13 @@ def initial_probabilities(known_states, unknown_states,
     return init / np.sum(init)
 
 
-def emission_probabilities(known_states, unknown_states, symbols):
+def emission_probabilities(known_states: List[str],
+                           unknown_states: List[str],
+                           symbols: List[str]) -> List[Dict]:
+    '''
+    Estimate initial emission probabilities
+    Return estimates as list of default dict of probabilities
+    '''
 
     probabilities = {
         gp.mismatch_symbol + gp.match_symbol: 0.9,
@@ -181,8 +288,13 @@ def emission_probabilities(known_states, unknown_states, symbols):
     return result
 
 
-def transition_probabilities(known_states, unknown_states,
-                             expected_frac, expected_length):
+def transition_probabilities(known_states: List[str],
+                             unknown_states: List[str],
+                             expected_frac: Dict,
+                             expected_lengths: Dict) -> np.array:
+    '''
+    Estimate initial transition probabilities
+    '''
 
     # doesn't depend on sequence observations but maybe it should?
 
@@ -193,7 +305,7 @@ def transition_probabilities(known_states, unknown_states,
     states = known_states + unknown_states
 
     fractions = np.array([expected_frac[s] for s in states])
-    lengths = 1/np.array([expected_length[s] for s in states])
+    lengths = 1/np.array([expected_lengths[s] for s in states])
 
     # general case,
     # trans[i,j] = 1/ length[i] * expected[j] * 1 /(1 - fraction[i])
@@ -207,16 +319,26 @@ def transition_probabilities(known_states, unknown_states,
     return transitions / transitions.sum(axis=1)[:, None]
 
 
-def initial_hmm_parameters(seq, known_states, unknown_states,
-                           expected_frac, expected_length):
+def initial_hmm_parameters(seq: np.array,
+                           known_states: List[str],
+                           unknown_states: List[str],
+                           expected_frac: Dict,
+                           expected_tract_lengths: Dict) -> hmm_bw.HMM:
+    '''
+    Build a HMM object initialized based on expected values and provided data
+    '''
 
     # get frequencies of individual symbols (e.g. '+') and all full
     # combinations of symbols (e.g. '+++-')
-    individual_symbol_freqs, symbol_freqs, weighted_match_freqs = get_symbol_freqs(seq)
+    (individual_symbol_freqs,
+     symbol_freqs,
+     weighted_match_freqs) = get_symbol_freqs(seq)
 
     init = initial_probabilities(known_states, unknown_states,
                                  expected_frac, weighted_match_freqs)
-    emis = emission_probabilities(known_states, unknown_states, symbol_freqs.keys())
+    emis = emission_probabilities(known_states,
+                                  unknown_states,
+                                  symbol_freqs.keys())
     trans = transition_probabilities(known_states, unknown_states,
                                      expected_frac, expected_length)
 
@@ -229,9 +351,33 @@ def initial_hmm_parameters(seq, known_states, unknown_states,
     return hmm
 
 
-def predict_introgressed(ref_seqs, predict_seq, predict_args,
-                         train=True, only_poly_sites=True,
-                         return_positions=False):
+def predict_introgressed(ref_seqs: np.array,
+                         predict_seq: np.array,
+                         predict_args: Dict,
+                         train: bool = True,
+                         only_poly_sites: bool = True,
+                         return_positions: bool = False) -> Tuple[
+                             List[str],
+                             np.array,
+                             hmm_bw.HMM,
+                             hmm_bw.HMM,
+                             np.array
+                         ]:
+    '''
+    Predict regions of introgression within the predicted sequence
+    ref_seqs: 2d np character array of the reference sequences
+    predict_seq: np character array of the sequence to perform prediction on
+    train: control whether or not to perform Baum-Welch estimation on HMM
+    only_poly_sites: control if only polymorphic sites should be considered
+    return_positions: if true, only the position of sites in reference sequence
+    is returned
+    Generally will return a tuple of the following:
+    The predicted types as a list of states
+    The posterior decoding of the trained HMM
+    The trained HMM object
+    The untrained HMM without sequences
+    The positions of sites with respect to the reference sequence
+    '''
 
     # code sequence by which reference it matches at each site;
     # positions are relative to master (first) reference sequence
@@ -240,10 +386,7 @@ def predict_introgressed(ref_seqs, predict_seq, predict_args,
         seq_coded, positions = poly_sites(seq_coded, positions)
     if return_positions:
         return positions
-    
-    # sets expected number of tracts and bases for each reference
-    # based on expected length of introgressed tracts and expected
-    # total fraction of genome
+
     set_expectations(predict_args, len(predict_seq))
 
     # set initial hmm parameters based on combination of (1) initial
@@ -288,7 +431,15 @@ def predict_introgressed(ref_seqs, predict_seq, predict_args,
         return predicted, p[0], hmm, hmm_init, positions
 
 
-def convert_to_blocks(state_seq, states):
+# TODO is there another convert to blocks (one)?
+def convert_to_blocks(state_seq: List[str],
+                      states: List[str]) -> Dict[
+                          str, List[Tuple[int, int]]]:
+    '''
+    Convert a list of sequences into a structure with start and end positions
+    Return structure is a dict keyed on species with values of Lists of
+    each block, which is a tuple with start and end positions
+    '''
     # single individual state sequence
     blocks = {}
     for state in states:
@@ -312,24 +463,39 @@ def convert_to_blocks(state_seq, states):
     return blocks
 
 
-def write_positions(ps, writer, strain, chrm):
+def write_positions(positions: np.array,
+                    writer: TextIO,
+                    strain: str,
+                    chrm: str) -> None:
+    '''
+    Write the positions of the specific strain, chromosome as a line to the
+    provided textIO object
+    '''
     writer.write(f'{strain}\t{chrm}\t' +
-                 '\t'.join([str(x) for x in ps]) + '\n')
+                 '\t'.join([str(x) for x in positions]) + '\n')
 
 
-def read_positions(fn):
-    # dictionary keyed by strain and then chromosome
-    with gzip.open(fn, 'rb') as reader:
+def read_positions(filename: str) -> Dict[str, Dict[str, List[int]]]:
+    '''
+    Read in positions from the provided filename, returning a dictionary
+    keyed first by the strain, then chromosome.  Returned positions are
+    lists of ints
+    '''
+    with gzip.open(filename, 'rb') as reader:
         result = defaultdict({})
         for line in reader:
             line = line.split()
             strain, chrm = line[0:2]
-            ps = [int(x) for x in line[2:]]
-            result[strain][chrm] = ps
+            positions = [int(x) for x in line[2:]]
+            result[strain][chrm] = positions
     return result
 
 
-def write_blocks_header(writer):
+def write_blocks_header(writer: TextIO) -> None:
+    '''
+    Write header line to tab delimited block file:
+    strain chromosome predicted_species start end num_sites_hmm
+    '''
     # NOTE: num_sites_hmm represents the sites considered by the HMM,
     # so it might exclude non-polymorphic sites in addition to gaps
     writer.write('\t'.join(['strain',
@@ -341,26 +507,38 @@ def write_blocks_header(writer):
                  + '\n')
 
 
-# TODO: find source of all the newlines in output!!
-def write_blocks(state_seq_blocks, ps, writer, strain, chrm, species_pred):
-    # file format is:
-    # strain chrm predicted_species start end number_non_gap
+def write_blocks(state_seq_blocks: List[Tuple[int, int]],
+                 positions: np.array,
+                 writer: TextIO,
+                 strain: str,
+                 chrm: str,
+                 species_pred: str) -> None:
+    '''
+    Write entry into tab delimited block file, with columns:
+    strain chromosome predicted_species start end num_sites_hmm
+    '''
     writer.write('\n'.join(
         ['\t'.join([strain,
                     chrm,
                     species_pred,
-                    str(ps[start]),
-                    str(ps[end]),
+                    str(positions[start]),
+                    str(positions[end]),
                     str(end - start + 1)])
          for start, end in state_seq_blocks]))
-    if state_seq_blocks:
+    if state_seq_blocks:  # ensure ends with \n
         writer.write('\n')
 
 
-def read_blocks(fn, labeled=False):
-    # return dictionary of (start, end, number_non_gap, [region_id]),
-    # keyed by strain and then chromosome
-    with open(fn, 'r') as reader:
+def read_blocks(filename: str,
+                labeled: bool = False) -> Dict[
+                    str, Dict[str, Tuple[int, int, int, str]]]:
+    '''
+    Read in the supplied block file, returning a dict keyed on strain,
+    then chromosome.  Values are tuples of start, end, and number of postions
+    for the block.
+    If labeled is true, values contain the region_id as last element
+    '''
+    with open(filename, 'r') as reader:
         reader.readline()  # header
         result = defaultdict(lambda: defaultdict(list))
         for line in reader:
@@ -377,8 +555,11 @@ def read_blocks(fn, labeled=False):
     return result
 
 
-def get_emis_symbols(known_states):
-
+def get_emis_symbols(known_states: List[str]) -> List[str]:
+    '''
+    Generate all permutations of match and mismatch symbols with
+    len(known_states) characters, in lexigraphical order
+    '''
     symbols = [gp.match_symbol, gp.mismatch_symbol]
     emis_symbols = [''.join(x) for x in
                     itertools.product(symbols, repeat=len(known_states))]
@@ -386,7 +567,15 @@ def get_emis_symbols(known_states):
     return emis_symbols
 
 
-def write_hmm_header(known_states, unknown_states, symbols, writer):
+def write_hmm_header(known_states: List[str],
+                     unknown_states: List[str],
+                     symbols: List[str],
+                     writer: TextIO) -> None:
+    '''
+    Write the header line for an hmm file to the provided textIO object
+    Output is tab delimited with:
+    strain chromosome initial_probs emissions transitions
+    '''
 
     writer.write('strain\tchromosome\t')
 
@@ -404,7 +593,17 @@ def write_hmm_header(known_states, unknown_states, symbols, writer):
     writer.write('\n')
 
 
-def write_hmm(hmm, writer, strain, chrm, emis_symbols):
+def write_hmm(hmm: hmm_bw.HMM,
+              writer: TextIO,
+              strain: str,
+              chrm: str,
+              emis_symbols: List[str]):
+    '''
+    Write information on the provided hmm as a line to the supplied textIO
+    object.
+    Output is tab delimited with:
+    strain chromosome initial_probs emissions transitions
+    '''
     writer.write(f'{strain}\t{chrm}\t')
 
     states = len(hmm.hidden_states)
@@ -421,7 +620,16 @@ def write_hmm(hmm, writer, strain, chrm, emis_symbols):
     writer.write('\n')
 
 
-def write_state_probs(probs, writer, strain, chrm, states):
+def write_state_probs(probs: Dict[str, List[float]],
+                      writer: TextIO,
+                      strain: str,
+                      chrm: str,
+                      states: List[str]) -> None:
+    '''
+    Write the probability each state to the supplied textIO object
+    Output is tab delimited with:
+    strain chrom state1:prob1,prob2,...,probn state2...
+    '''
     writer.write(f'{strain}\t{chrm}\t')
 
     writer.write('\t'.join(

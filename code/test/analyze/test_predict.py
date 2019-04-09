@@ -3,7 +3,7 @@ from hmm import hmm_bw as hmm
 import pytest
 from pytest import approx
 from io import StringIO
-from collections import Counter, defaultdict
+from collections import defaultdict
 import random
 import numpy as np
 
@@ -141,7 +141,7 @@ def test_ungap_and_code():
         ['abc', 'def', 'ghi'],  # several references
         0)  # reference index
     assert positions == approx([])
-    assert sequence == []
+    assert sequence == approx([])
 
     # one match
     sequence, positions = predict.ungap_and_code(
@@ -157,7 +157,7 @@ def test_ungap_and_code():
         ['abc', 'def', '-hi'],
         0)
     assert positions == approx([])
-    assert sequence == []
+    assert sequence == approx([])
 
     # two matches
     sequence, positions = predict.ungap_and_code(
@@ -165,7 +165,7 @@ def test_ungap_and_code():
         ['abc', 'def', 'gei'],
         0)
     assert positions == approx([0, 1])
-    assert sequence == ['+--', '-++']
+    assert (sequence == ['+--', '-++']).all()
 
     # mess with ref index
     sequence, positions = predict.ungap_and_code(
@@ -173,14 +173,13 @@ def test_ungap_and_code():
         ['a--bc', 'deeef', 'geeei'],
         0)
     assert positions == approx([0, 1])
-    assert sequence == ['+--', '-++']
+    assert (sequence == ['+--', '-++']).all()
     sequence, positions = predict.ungap_and_code(
         'a--e-',
         ['a--bc', 'deeef', 'geeei'],
         1)
     assert positions == approx([0, 3])
-    assert sequence == ['+--', '-++']
-
+    assert (sequence == ['+--', '-++']).all()
 
     sequence, positions = predict.ungap_and_code(
         'a---ef--i',
@@ -189,16 +188,16 @@ def test_ungap_and_code():
          'a-ceef-hh'],
         0)
 
-    assert sequence == '+++ -++ +-+ ++-'.split()
+    assert (sequence == '+++ -++ +-+ ++-'.split()).all()
     assert positions == approx([0, 3, 4, 7])
 
 
 def test_poly_sites():
     sequence, positions = predict.poly_sites(
-        '+++ -++ +-+ ++-'.split(),
-        [0, 3, 4, 7]
+        np.array('+++ -++ +-+ ++-'.split()),
+        np.array([0, 3, 4, 7])
     )
-    assert sequence == '-++ +-+ ++-'.split()
+    assert (sequence == '-++ +-+ ++-'.split()).all()
     assert positions == approx([3, 4, 7])
 
 
@@ -239,7 +238,7 @@ def test_get_symbol_freqs():
 
 
 def symbol_test_helper(sequence):
-    ind, symb, weigh = predict.get_symbol_freqs(sequence)
+    ind, symb, weigh = predict.get_symbol_freqs(np.array(sequence))
 
     num_states = len(sequence[0])
     num_sites = len(sequence)
@@ -301,7 +300,6 @@ def test_emission_probabilities(args):
     # normal mode
     symbols = predict.get_emis_symbols([1]*5)
 
-    # NOTE not sure why this takes the keys in predict.py or uses len-2
     emis = predict.emission_probabilities(args['known_states'],
                                           args['unknown_states'],
                                           symbols)
@@ -654,3 +652,38 @@ def test_write_state_probs():
          'a:0.00000,1.00000,0.00000\t'
          'b:0.00000,0.00000,1.00000\t'
          'c:1.00000,0.00000,1.00000\n')
+
+
+def test_convert_to_blocks_one():
+    random.seed(0)
+    states = [str(i) for i in range(10)]
+    # TODO fix this as an error or throw another exception
+    # help_test_convert_blocks(states, [])
+    help_test_convert_blocks(states, list('1'))
+    help_test_convert_blocks(states, list('12'))
+    help_test_convert_blocks(states, list('1111'))
+
+    for test in range(10):
+        seq = [str(random.randint(0, 9)) for i in range(100)]
+        help_test_convert_blocks(states, seq)
+
+        
+def help_test_convert_blocks(states, seq):
+    blocks = predict.convert_to_blocks(seq, states)
+
+    nseq = np.array(seq, int)
+    # add element to the end to catch repeats on last index
+    nseq = np.append(nseq, nseq[-1]+1)
+    diff = np.diff(nseq)
+    locs = np.nonzero(diff)[0]
+    lens = np.diff(locs)
+    lens = np.append(locs[0]+1, lens)
+
+    current = 0
+    result = defaultdict(list)
+    for i, l in enumerate(locs):
+        result[seq[l]].append((current, current + lens[i] - 1))
+        current += lens[i]
+
+    for k in blocks:
+        assert blocks[k] == result[k]

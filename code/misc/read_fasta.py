@@ -1,8 +1,14 @@
 import gzip
 import numpy as np
+from typing import Tuple, List
 
 
-def read_fasta(fn, gz=False):
+def read_fasta(fn: str, gz: bool = False) -> Tuple[
+        List[str], np.array]:
+    '''
+    Read the provided fasta file, returning the
+    headers (lines startin with >) and sequences
+    '''
 
     headers = []
     seqs = []

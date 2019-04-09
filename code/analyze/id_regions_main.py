@@ -1,12 +1,19 @@
 import sys
 from analyze import predict
-from analyze import read_args
 from operator import itemgetter
 import global_params as gp
 
 
-def main():
-    args = read_args.process_predict_args(sys.argv[1:])
+def main() -> None:
+    '''
+    Adds a unique region id to block files, producing labeled text files
+    Input files:
+    -blocks_{species}.txt
+
+    Output files:
+    -blocks_{species}_labeled.txt
+    '''
+    args = predict.process_predict_args(sys.argv[1:])
 
     # order regions by chromosome, start (break ties alphabetically by strain)
     all_regions_by_chrm = dict(zip(gp.chrms, [[] for chrm in gp.chrms]))

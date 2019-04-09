@@ -24,7 +24,7 @@ def test_get_max_path(hm):
     assert probs == max_probs
 
 
-def test_get_threshold_predicted(hm):
+def test_threshold_predicted(hm):
     post = hm.posterior_decoding()
     path, probs = sim_process.get_max_path(post[0], hm.hidden_states)
     for thresh in (0, 0.2, 0.5, 0.8, 1):

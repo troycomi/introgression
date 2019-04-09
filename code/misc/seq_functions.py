@@ -1,4 +1,5 @@
 import numpy as np
+from typing import List, Tuple
 
 
 r = {'A': 'T', 'T': 'A', 'G': 'C', 'C': 'G',
@@ -56,7 +57,12 @@ def index_ignoring_gaps(s, i, s_start, gap_symbol):
     return x
 
 
-def seq_id(ref_seq, seq):
+def seq_id(ref_seq: List[str], seq: List[str]) -> Tuple[int, int]:
+    '''
+    Given two sequences, determine the total number of valid matching sites
+    and number of valid sites. A site is valid if it is a upper or lower case
+    ATCG
+    '''
     length = min(ref_seq.size, seq.size)
     valid_seq = list(r.keys())
     valid = np.logical_and(

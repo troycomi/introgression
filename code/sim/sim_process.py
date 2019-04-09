@@ -1,4 +1,5 @@
 import numpy as np
+from typing import List, Dict, Tuple
 
 
 # given fractional positions for snvs and length of sequence l,
@@ -82,7 +83,7 @@ def read_one_sim(f, num_sites, num_samples):
     t_string = f.readline()
     recomb_sites = []
     trees = []
-    
+
     while t_string[0] == '[':
         t_start = t_string.find(']') + 1
         recomb_sites.append(int(t_string[1:t_start-1]))
@@ -110,7 +111,14 @@ def read_one_sim(f, num_sites, num_samples):
     return sim
 
 
-def convert_to_blocks_one(state_seq, states):
+def convert_to_blocks_one(state_seq: List[str],
+                          states: List[str]) -> Dict[
+                              str, List[Tuple[int, int]]]:
+    '''
+    Convert a list of sequences into a structure with start and end positions
+    Return structure is a dict keyed on species with values of Lists of
+    each block, which is a tuple with start and end positions
+    '''
     # single individual state sequence
     blocks = {}
     for state in states:
@@ -302,8 +310,14 @@ def read_state_probs(f, line):
     return d, rep, line
 
 
-def threshold_predicted(predicted, probs, threshold, default_state):
-
+def threshold_predicted(predicted: List[str],
+                        probs: List[float],
+                        threshold: float,
+                        default_state: str) -> List[str]:
+    '''
+    Given a list of states, predicted, and the associated probabilities, probs
+    Converts any states with probability < threshold to the default state
+    '''
     predicted_thresholded = np.array(predicted)
     probs = np.array(probs)
     predicted_thresholded[probs < threshold] = default_state
@@ -328,9 +342,13 @@ def fill_seqs(polymorphic_seqs, polymorphic_sites, nsites, fill):
     return seqs_filled
 
 
-def get_max_path(p, states):
-    # p is a list of dictionaries, one per site; each dict has keys
-    # for each state, with associated probability
+def get_max_path(p: np.array, states: List[float]) -> Tuple[
+        List[int], List[float]]:
+    '''
+    p is a list of dictionaries, one per site; each dict has keys
+    for each state, with associated probability
+    Return the maximum likelihood path and the associated probabilities
+    '''
     max_positions = np.argmax(p, axis=1)
     max_path = [states[i] for i in max_positions]
     max_probs = [p[i, pos] for i, pos in enumerate(max_positions)]

@@ -1,7 +1,7 @@
 import sys
 import os
 import gzip
-from analyze import read_args
+from analyze import predict
 from analyze.summarize_region_quality import (convert_intervals_to_sites,
                                               read_masked_intervals,
                                               index_alignment_by_reference,
@@ -17,9 +17,24 @@ import bisect
 import pickle
 
 
-def main():
+def main() -> None:
+    '''
+    Summarize region quality of each region
+    First parameter is the species to process
+    Input files:
+    -blocks_{species}_labeled.txt
+    -{species}_chr_intervals.txt
+    -{species}_chr_mafft.fa
+    -{species}_chr_mafft.fa
 
-    args = read_args.process_predict_args(sys.argv[2:])
+    Output files:
+    -positions_{tag}.txt.gz
+    -regions file as {species}.fa.gz
+    -index file for the fz.gz
+    -blocks_{species}_quality.txt
+    '''
+
+    args = predict.process_predict_args(sys.argv[2:])
 
     task_ind = int(sys.argv[1])
     species_ind = task_ind
@@ -98,7 +113,7 @@ def main():
             ps = np.array([int(x) for x in line[2:]])
 
             headers, seqs = read_fasta.read_fasta(
-                args['setup_args']['alignments_directory'] + \
+                args['setup_args']['alignments_directory'] +
                 '_'.join(args['known_states'])
                 + f'_{strain}_chr{chrm}_mafft{gp.alignment_suffix}')
 
@@ -106,7 +121,7 @@ def main():
             ind_align = []
             for seq in seqs:
                 ind_align.append(index_alignment_by_reference(seq))
-            
+
             masked_sites = convert_intervals_to_sites(
                 read_masked_intervals(
                     f'{gp.mask_dir}{strain}_chr{chrm}_intervals.txt'))

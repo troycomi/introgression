@@ -8,58 +8,90 @@
 # then we'll make some plots in R to see if there's a sort of obvious
 # place to draw the line
 
-import re
 import sys
-import os
-import copy
-from collections import defaultdict
-import predict
-from filter_helpers import *
-sys.path.insert(0, '..')
+from analyze import predict
+from analyze.filter_helpers import passes_filters2
 import global_params as gp
-sys.path.insert(0, '../misc/')
-import read_table
-import read_fasta
+from misc import read_table
+from misc.region_reader import Region_Reader
 
-args = predict.process_predict_args(sys.argv[1:])
 
-#thresholds = [.99, .98, .97, .96, .95, .94, .93, .92, .91, .9, .88, .85, .82, .8, .75, .7, .6, .5]
-#thresholds = [.999, .995, .985, .975, .965, .955, .945, .935, .925, .915, .905, .89, .87, .86]
-thresholds = [1]
+thresholds = [.999, .995, .985, .975, .965, .955, .945,
+              .935, .925, .915, .905, .89, .87, .86]
+# thresholds = [.99, .98, .97, .96, .95, .94, .93, .92,
+#               .91, .9, .88, .85, .82, .8, .75, .7, .6, .5]
+# thresholds = [1]
 
-open_mode = 'a'
-f = open(gp.analysis_out_dir_absolute + args['tag'] + \
-         '/filter_2_thresholds_' + args['tag'] + '.txt', open_mode)
-if open_mode == 'w':
-    f.write('threshold\tpredicted_state\talternative_states\tcount\n')
-for threshold in thresholds:
-    print threshold
-    for species_from in args['known_states'][1:]:
 
-        print '*', species_from
+def main() -> None:
+    '''
+    Perform second stage of filtering with several threshold levels
+    Input files:
+    -blocks_{species}_filtered1.txt
+    -regions/{species}.fa.gz
+    -regions/{species}.pkl
 
-        fn = gp.analysis_out_dir_absolute + args['tag'] + '/' + \
-             'blocks_' + species_from + \
-             '_' + args['tag'] + '_filtered1.txt'
-        region_summary, fields = read_table.read_table_rows(fn, '\t')
-        
-        d = defaultdict(int)
-        for region_id in region_summary:
-            #print region_id, '****'
-            region = region_summary[region_id]
-            headers, seqs = read_fasta.read_fasta(gp.analysis_out_dir_absolute + \
-                                                  args['tag'] + \
-                                              '/regions/' + region_id + '.fa.gz', \
-                                              gz = True)
-            info_string = seqs[-1]
-            seqs = seqs[:-1]
-            
-            p, alt_states, alt_ids, alt_P_counts = \
-                passes_filters2(region, seqs, threshold)
+    Output files:
+    -filter_2_thresholds.txt
+    '''
+    args = predict.process_predict_args(sys.argv[1:])
+    out_dir = gp.analysis_out_dir_absolute + args['tag']
 
-            d[','.join(sorted(alt_states))] += 1
-    
-        for key in d:
-            f.write(str(threshold) + '\t' + species_from + '\t' + \
-                    key + '\t' + str(d[key]) + '\n')
-f.close()
+    open_mode = 'w'
+    with open(f'{out_dir}/filter_2_thresholds_{args["tag"]}.txt', open_mode)\
+            as writer:
+        if open_mode == 'w':
+            writer.write(
+                'threshold\tpredicted_state\talternative_states\tcount\n')
+
+        data_table = {}
+        for species_from in args['known_states'][1:]:
+            print(f'* {species_from}')
+
+            region_summary, fields = read_table.read_table_rows(
+                f'{out_dir}/blocks_{species_from}'
+                f'_{args["tag"]}_filtered1.txt',
+                '\t')
+
+            with Region_Reader(f'{out_dir}/regions/{species_from}.fa.gz',
+                               as_fa=True) as region_reader:
+                for region_id, header, seqs in \
+                        region_reader.yield_fa(region_summary.keys()):
+
+                    region = region_summary[region_id]
+                    seqs = seqs[:-1]
+
+                    for threshold in thresholds:
+                        _, alt_states, _, _ = \
+                            passes_filters2(region, seqs, threshold)
+
+                        record_data_hit(data_table,
+                                        threshold,
+                                        species_from,
+                                        ','.join(sorted(alt_states)))
+
+        for threshold in thresholds:
+            for species in args['known_states'][1:]:
+                d = data_table[threshold][species]
+                for key in d.keys():
+                    writer.write(f'{threshold}\t{species}\t{key}\t{d[key]}\n')
+
+
+def record_data_hit(data_dict, threshold, species, key):
+    '''
+    adds an entry to the data table or increments if exists
+    '''
+    if threshold not in data_dict:
+        data_dict[threshold] = {}
+
+    if species not in data_dict[threshold]:
+        data_dict[threshold][species] = {}
+
+    if key not in data_dict[threshold][species]:
+        data_dict[threshold][species][key] = 0
+
+    data_dict[threshold][species][key] += 1
+
+
+if __name__ == "__main__":
+    main()
