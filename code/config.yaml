@@ -1,0 +1,102 @@
+---
+# biological parameters
+mu: 1.84e-10
+
+
+# should we leave the alignments already completed in the alignments
+# directory alone?
+resume_alignment: False
+
+HMM_symbols:
+    match: '+'
+    mismatch: '-'
+    unknown: '?'
+    unsequenced: 'n'
+    gap: '-'
+    unaligned: '?'
+    masked: 'x'
+
+paths:
+    output_base: /tigress/tcomi/aclark4_temp/results
+
+    fasta_suffix: .fa  # suffix for _all_ fasta files
+    # suffix for _all_ alignment files
+    # this needs to match the suffix output by mugsy
+    alignment_suffix: .maf
+
+    # sequence locations/names
+    # master_ref now automatically assumed to be first
+    # reference specified in setup_args file
+
+    # now specified in setup_args file
+
+    # alignment files
+
+    # alignments directory now specified in setup_args file
+
+    mask_dir: /tigress/tcomi/aclark4_temp/par4/masked/
+    alignments_dir: /tigress/tcomi/aclark4_temp/par4/
+
+    simulations:
+        sim_base: __OUTPUT_BASE__/sim
+        prefix: sim_out_
+        suffix: .txt
+
+    analysis:
+        analysis_base: __OUTPUT_BASE__/analysis
+        regions: __ANALYSIS_BASE__/regions/
+        genes: __ANALYSIS_BASE__/genes/
+
+    # software install locations
+    software:
+        root_install: /tigress/anneec/software
+        mugsy: __ROOT_INSTALL__/mugsy/
+        tcoffee: "__ROOT_INSTALL__/\
+            T-COFFEE_installer_Version_11.00.8cbe486_linux_x64/bin/"
+        mafft: __ROOT_INSTALL__/mafft/bin/
+        ms: __ROOT_INSTALL__/msdir/
+        # including dustmasker
+        blast: "__ROOT_INSTALL__/ncbi-blast-2.7.1+-src/\
+            c++/ReleaseMT/bin/"
+        orffinder: __ROOT_INSTALL__/
+        ldselect: __ROOT_INSTALL__/ldSelect/
+        structure: __ROOT_INSTALL__/structure/
+
+chrms: ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII',
+        'IX', 'X', 'XI', 'XII', 'XIII', 'XIV', 'XV', 'XVI']
+
+analysis_params:
+    tag: p2e4
+    improvement_frac: 0.001
+    threshold: viterbi
+    input_root: /tigress/AKEY/akey_vol2/aclark4/nobackup
+
+    reference:
+        name: S228c
+        fasta_name: SC88c_SGD-R64
+        base_dir: __INPUT_ROOT__/100_genomes/genomes/S288c_SGD-R64/
+        gene_bank_dir: __INPUT_ROOT__/S288c/
+
+    known_states:
+        - name: CBS432
+          fasta_name: CBS432
+          base_dir: /tigress/anneec/projects/introgression/data/CBS432/
+          gene_bank_dir: __INPUT_ROOT__/CBS432/
+
+        - name: N_45
+          fasta_name: N_45
+          base_dir: __INPUT_ROOT__/para_sgrp/strains/N_45/
+          gene_bank_dir: null
+
+        - name: DBVPG6304
+          fasta_name: DBVPG6304
+          base_dir: __INPUT_ROOT__/para_sgrp/strains/DBVPG6304/
+          gene_bank_dir: null
+
+        - name: UWOPS91_917_1
+          fasta_name: UWOPS91_917_1
+          base_dir: __INPUT_ROOT__/para_sgrp/strains/UWOPS91_917_1/
+          gene_bank_dir: null
+
+    test_dir: __INPUT_ROOT__/100_genomes/genomes_gb/
+    gene_bank_all: __INPUT_ROOT__/100_genomes/sequence.gb
