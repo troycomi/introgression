@@ -80,112 +80,29 @@ def predict(ctx,
             alignment):
     config = ctx.obj
 
-    chromosomes = validate(config,
-                           'chromosomes',
-                           'No chromosomes specified in config file!')
+    predictor = predict.Predictor(config)
+    predictor.set_chromosomes()
 
-    blocks = validate(config,
-                      'paths.analysis.block_files',
-                      'No block file provided',
-                      blocks)
+    predictor.set_blocks_file(blocks)
+    log.info(f'output blocks file for predict is {predictor.blocks}')
 
-    check_wildcards(blocks, 'state')
-    log.info(f'output blocks file for predict is {blocks}')
+    predictor.set_prefix(prefix)
+    log.info(f'prefix is {predictor.prefix}')
 
-    known, unknown = get_states(config)
-    if prefix == '':
-        prefix = '_'.join(known)
+    predictor.set_strains(test_strains)
+    log.info(f'found {len(predictor.test_strains)} test strains')
+    log.info(f'found {len(predictor.strains)} unique strains')
 
-    log.info(f'prefix is {prefix}')
-
-    if test_strains == '':
-        test_strains = get_nested(config, 'paths.test_strains')
-    else:
-        # need to support list for test strains
-        test_strains = [test_strains]
-    for test_strain in test_strains:
-        check_wildcards(test_strain, 'strain,chrom')
-
-    log.info(f'found {len(test_strains)} test strains')
-
-    strains = get_strains(config, test_strains, prefix, chromosomes)
-    log.info(f'found {len(strains)} unique strains')
-
-    hmm_initial = validate(config,
-                           'paths.analysis.hmm_initial',
-                           'No initial hmm file provided',
-                           hmm_initial)
-    log.info(f'hmm_initial is {hmm_initial}')
-
-    hmm_trained = validate(config,
-                           'paths.analysis.hmm_trained',
-                           'No trained hmm file provided',
-                           hmm_trained)
-    log.info(f'hmm_trained is {hmm_trained}')
-
-    positions = validate(config,
-                         'paths.analysis.positions',
-                         'No positions file provided',
-                         positions)
+    predictor.set_output_files(hmm_initial,
+                               hmm_trained,
+                               positions,
+                               probabilities,
+                               alignment)
+    log.info(f'hmm_initial is {predictor.hmm_initial}')
+    log.info(f'hmm_trained is {predictor.hmm_trained}')
     log.info(f'positions is {positions}')
+    log.info(f'probabilities is {predictor.probabilities}')
+    log.info(f'alignment is {predictor.alignment}')
 
-    probabilities = validate(config,
-                             'paths.analysis.probabilities',
-                             'No probabilities file provided',
-                             probabilities)
-    log.info(f'probabilities is {probabilities}')
-
-    alignment = validate(config,
-                         'paths.analysis.alignment',
-                         'No alignment file provided',
-                         alignment)
-    check_wildcards(alignment, 'prefix,strain,chrom')
-    alignment = alignment.replace('{prefix}', prefix)
-    log.info(f'alignment is {alignment}')
-
-
-def get_strains(config: Dict,
-                test_strains: List,
-                prefix: str,
-                chromosomes: List):
-    '''
-    Helper method to get strains supplied in config, or from test_strains
-    '''
-    strains = get_nested(config, 'strains')
-
-    if strains is None:
-        # try to build strains from wildcards in test_strains
-        strains = {}
-        for test_strain in test_strains:
-            strain_glob = test_strain.format(
-                prefix=prefix,
-                strain='*',
-                chrom='*')
-            log.info(f'searching for {strain_glob}')
-            for fname in glob.iglob(strain_glob):
-                match = re.match(
-                    test_strain.format(
-                        prefix=prefix,
-                        strain='(?P<strain>.*?)',
-                        chrom='(?P<chrom>[^_]*?)'
-                    ),
-                    fname)
-                if match:
-                    log.debug(f'matched with {match.group("strain", "chrom")}')
-                    strain, chrom = match.group('strain', 'chrom')
-                    if strain not in strains:
-                        strains[strain] = []
-                    strains[strain].append(chrom)
-
-        if len(strains) == 0:
-            err = f'Found no chromosome sequence files in {test_strains}'
-            log.exception(err)
-            raise ValueError(err)
-
-        for strain, chroms in strains.items():
-            if len(chromosomes) != len(chroms):
-                err = (f'Strain {strain} has incorrect number of chromosomes. '
-                       f'Expected {len(chromosomes)} found {len(chroms)}')
-                log.exception(err)
-                raise ValueError(err)
-    return list(sorted(strains.keys()))
+    predictor.validate_arguments()
+    predictor.run_prediction()

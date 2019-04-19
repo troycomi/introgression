@@ -1,18 +1,20 @@
 import copy
-import os
 import gzip
+import glob
+import re
 import itertools
 from collections import defaultdict, Counter
 from hmm import hmm_bw
 from sim import sim_predict
 from sim import sim_process
 import global_params as gp
-from misc import read_fasta
 import numpy as np
 from typing import List, Dict, Tuple, TextIO
 from contextlib import ExitStack
 import logging as log
 from misc.read_fasta import read_fasta
+from misc.config_utils import (check_wildcards, validate,
+                               get_states, get_nested)
 
 
 def process_predict_args(arg_list: List[str]) -> Dict:
@@ -74,24 +76,237 @@ def process_predict_args(arg_list: List[str]) -> Dict:
     return d
 
 
-def read_aligned_seqs(fast_file: str,
-                      strain: str) -> Tuple[np.array, np.array]:
+class Predictor():
     '''
-    Read fasta file, returning sequences of references and the specied strain
+    Predictor class
+    Stores all variables needed to run an HMM prediction
     '''
-    headers, seqs = read_fasta.read_fasta(fast_file)
-    d = {}
-    for i in range(len(seqs)):
-        name = headers[i][1:].split(' ')[0]
-        d[name] = seqs[i]
+    def __init__(self, configuration: Dict):
+        self.config = configuration
+        self.known_states, self.unknown_states = get_states(self.config)
+        self.chromosomes = None
+        self.blocks = None
+        self.prefix = None
+        self.strains = None
+        self.hmm_initial = None
+        self.hmm_trained = None
+        self.positions = None
+        self.probabilities = None
+        self.alignment = None
 
-    ref_seqs = []
-    for ref in gp.alignment_ref_order:
-        ref_seqs.append(d[ref])
-    predict_seq = d[strain]
+    def set_chromosomes(self):
+        '''
+        Gets the chromosome list from provided config, raising a ValueError
+        if undefined.
+        '''
+        self.chromosomes = validate(
+            self.config,
+            'chromosomes',
+            'No chromosomes specified in config file!')
 
-    return ref_seqs, predict_seq
+    def set_blocks_file(self, blocks: str = None):
+        '''
+        Set the block wildcard filename.  Checks for appropriate wildcards
+        '''
+        self.blocks = validate(
+            self.config,
+            'paths.analysis.block_files',
+            'No block file provided',
+            blocks)
 
+        check_wildcards(self.blocks, 'state')
+
+    def set_prefix(self, prefix: str = ''):
+        '''
+        Set prefix string of the predictor to the supplied value or
+        build it from the known states
+        '''
+        if prefix == '':
+            self.prefix = '_'.join(self.known_states)
+        else:
+            self.prefix = prefix
+
+    def set_strains(self, test_strains: str = ''):
+        '''
+        build the strains to perform prediction on
+        '''
+        if test_strains == '':
+            test_strains = get_nested(self.config, 'paths.test_strains')
+        else:
+            # need to support list for test strains
+            test_strains = [test_strains]
+        for test_strain in test_strains:
+            check_wildcards(test_strain, 'strain,chrom')
+
+        self.find_strains(test_strains)
+
+    def find_strains(self, test_strains: List[str]):
+        '''
+        Helper method to get strains supplied in config, or from test_strains
+        '''
+        strains = get_nested(self.config, 'strains')
+
+        if strains is None:
+            # try to build strains from wildcards in test_strains
+            strains = {}
+            for test_strain in self.test_strains:
+                # find matching files
+                strain_glob = test_strain.format(
+                    prefix=self.prefix,
+                    strain='*',
+                    chrom='*')
+                log.info(f'searching for {strain_glob}')
+                for fname in glob.iglob(strain_glob):
+                    # extract wildcard matches
+                    match = re.match(
+                        test_strain.format(
+                            prefix=self.prefix,
+                            strain='(?P<strain>.*?)',
+                            chrom='(?P<chrom>[^_]*?)'
+                        ),
+                        fname)
+                    if match:
+                        log.debug(
+                            f'matched with {match.group("strain", "chrom")}')
+                        strain, chrom = match.group('strain', 'chrom')
+                        if strain not in strains:
+                            strains[strain] = []
+                        strains[strain].append(chrom)
+
+            if len(strains) == 0:
+                err = ('Found no chromosome sequence files '
+                       f'in {self.test_strains}')
+                log.exception(err)
+                raise ValueError(err)
+
+            for strain, chroms in strains.items():
+                if len(self.chromosomes) != len(chroms):
+                    err = (f'Strain {strain} has incorrect number of '
+                           f'chromosomes. Expected {len(chromosomes)} '
+                           f'found {len(chroms)}')
+                    log.exception(err)
+                    raise ValueError(err)
+
+        self.strains = list(sorted(strains.keys()))
+
+    def set_output_files(self,
+                         hmm_initial: str,
+                         hmm_trained: str,
+                         positions: str,
+                         probabilities: str,
+                         alignment: str):
+        '''
+        Set output files from provided values or config.
+        Raises value errors if a file is not provided.
+        Checks alignment for all wildcards and replaces prefix.
+        '''
+        self.hmm_initial = validate(self.config,
+                                    'paths.analysis.hmm_initial',
+                                    'No initial hmm file provided',
+                                    hmm_initial)
+
+        self.hmm_trained = validate(self.config,
+                                    'paths.analysis.hmm_trained',
+                                    'No trained hmm file provided',
+                                    hmm_trained)
+
+        self.positions = validate(self.config,
+                                  'paths.analysis.positions',
+                                  'No positions file provided',
+                                  positions)
+
+        self.probabilities = validate(self.config,
+                                      'paths.analysis.probabilities',
+                                      'No probabilities file provided',
+                                      probabilities)
+
+        alignment = validate(self.config,
+                             'paths.analysis.alignment',
+                             'No alignment file provided',
+                             alignment)
+        check_wildcards(alignment, 'prefix,strain,chrom')
+        self.alignment = alignment.replace('{prefix}', self.prefix)
+
+    def validate_arguments(self):
+        '''
+        Check that all required instance variables are set to perform a
+        prediction run
+        '''
+        args = [
+            'chromosomes',
+            'blocks',
+            'prefix',
+            'strains',
+            'hmm_initial',
+            'hmm_trained',
+            'positions',
+            'probabilities',
+            'alignment',
+        ]
+        variables = self.__dict__
+        for arg in args:
+            if variables[arg] is None:
+                err = ('Failed to validate Predictor, required argument '
+                       f'{arg} was unset')
+                log.exception(err)
+                raise ValueError(err)
+
+    def run_prediction(self):
+        '''
+        Run prediction with this predictor object
+        '''
+        self.emission_symbols = get_emis_symbols(self.known_states)
+
+        with open(self.hmm_initial, 'w') as initial, \
+                open(self.hmm_trained, 'w') as trained, \
+                gzip.open(self.positions, 'wt') as positions, \
+                gzip.open(self.probabilities, 'wt') as probabilities, \
+                ExitStack() as stack:
+
+            block_writers = {state:
+                             stack.enter_context(
+                                 open(self.blocks.format(state=state), 'w'))
+                             for state in
+                             self.known_states + self.unknown_states}
+
+            self.write_hmm_header(initial)
+            self.write_hmm_header(trained)
+
+            for chrom in chromosomes:
+                for strain in strains:
+                    log.info(f'working on: {strain} {chrom}')
+                    alignment_file = alignment.format(strain=strain, chrom=chrom)
+
+                    headers, sequences = read_fasta(alignment_file)
+
+                    references = sequences[:-1]
+                    predicted = sequences[-1]
+
+                    states, probabilities, hmm_trained, hmm_initial, positions =\
+                        predict_introgressed(references, predicted,
+                                             ARGS, train=True)
+
+    def write_hmm_header(self, writer: TextIO) -> None:
+        '''
+        Write the header line for an hmm file to the provided textIO object
+        Output is tab delimited with:
+        strain chromosome initial_probs emissions transitions
+        '''
+
+        writer.write('strain\tchromosome\t')
+
+        states = self.known_states + self.unknown_states
+
+        writer.write('\t'.join(
+            [f'init_{s}' for s in states] +  # initial
+            [f'emis_{s}_{symbol}'
+             for s in states
+             for symbol in self.emission_symbols] +  # emissions
+            [f'trans_{s1}_{s2}'
+             for s1 in states
+             for s2 in states]))  # transitions
+
+        writer.write('\n')
 
 def set_expectations(args: Dict, n: int) -> None:
     '''
@@ -570,30 +785,6 @@ def get_emis_symbols(known_states: List[str]) -> List[str]:
     return emis_symbols
 
 
-def write_hmm_header(known_states: List[str],
-                     unknown_states: List[str],
-                     symbols: List[str],
-                     writer: TextIO) -> None:
-    '''
-    Write the header line for an hmm file to the provided textIO object
-    Output is tab delimited with:
-    strain chromosome initial_probs emissions transitions
-    '''
-
-    writer.write('strain\tchromosome\t')
-
-    states = known_states + unknown_states
-
-    writer.write('\t'.join(
-        [f'init_{s}' for s in states] +  # initial
-        [f'emis_{s}_{symbol}'
-         for s in states
-         for symbol in symbols] +  # emissions
-        [f'trans_{s1}_{s2}'
-         for s1 in states
-         for s2 in states]))  # transitions
-
-    writer.write('\n')
 
 
 def write_hmm(hmm: hmm_bw.HMM,
@@ -641,41 +832,3 @@ def write_state_probs(probs: Dict[str, List[float]],
          for i, state in enumerate(states)]))
 
     writer.write('\n')
-
-
-def run(known_states, unknown_states,
-        hmm_initial, hmm_trained,
-        blocks, positions, probabilities,
-        chromosomes, strains, alignment):
-
-    emission_symbols = get_emis_symbols(known_states)
-
-    with open(hmm_initial, 'w') as initial, \
-            open(hmm_trained, 'w') as trained, \
-            gzip.open(positions, 'wt') as positions, \
-            gzip.open(probabilities, 'wt') as probabilities, \
-            ExitStack() as stack:
-
-        block_writers = {state:
-                         stack.enter_context(
-                             open(blocks.format(state=state), 'w'))
-                         for state in known_states + unknown_states}
-
-        write_hmm_header(known_states, unknown_states,
-                         emission_symbols, initial)
-        write_hmm_header(known_states, unknown_states,
-                         emission_symbols, trained)
-
-        for chrom in chromosomes:
-            for strain in strains:
-                log.info(f'working on: {strain} {chrom}')
-                alignment_file = alignment.format(strain=strain, chrom=chrom)
-
-                headers, sequences = read_fasta(alignment_file)
-
-                references = sequences[:-1]
-                predicted = sequences[-1]
-
-                states, probabilities, hmm_trained, hmm_initial, positions =\
-                    predict_introgressed(references, predicted,
-                                         ARGS, train=True)
