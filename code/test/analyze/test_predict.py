@@ -709,3 +709,7 @@ def help_test_convert_blocks(states, seq):
 
     for k in blocks:
         assert blocks[k] == result[k]
+
+
+def test_run():
+    pass

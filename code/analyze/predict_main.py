@@ -30,13 +30,9 @@ strain_dirs = align_helpers.get_strains(
 # output files and if and where to resume
 ##======
 
-if not os.path.isdir(gp.analysis_out_dir_absolute + args['tag']):
-    os.makedirs(gp.analysis_out_dir_absolute + args['tag'])
-
-# positions
-# TODO move this to more general location and make separate files for
-# each strain x chrm
 base_dir = f'{gp.analysis_out_dir_absolute}{args["tag"]}'
+if not os.path.isdir(base_dir):
+    os.makedirs(base_dir)
 
 # introgressed blocks
 blocks_f = {}

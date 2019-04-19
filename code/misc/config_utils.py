@@ -1,12 +1,13 @@
 import re
 from copy import copy
-from typing import Dict, List
+from typing import Dict, List, Tuple
+import logging as log
 
 
 '''
-clean_config.py
+config_utils.py
 
-Helper functions for performing replacements on yaml config files
+Helper functions for working with yaml config files
 '''
 
 
@@ -130,11 +131,121 @@ def print_list(l: List, lvl: int = 0) -> str:
     '''
     result = ''
     for i, v in enumerate(l):
-        result += '  ' * lvl + f'{i}:\n'
         if isinstance(v, dict):
-            result += print_dict(v, lvl+1)
+            result += '  ' * lvl + f'{i}:\n' + print_dict(v, lvl+1)
         elif isinstance(v, list):
-            result += print_list(v, lvl+1)
+            result += '  ' * lvl + f'{i}:\n' + print_list(v, lvl+1)
         else:
-            result += '  ' * lvl + f'{v},\n'
+            result += '  ' * lvl + f'{i}:\t{v},\n'
     return result
+
+
+def merge_dicts(parent: Dict, new: Dict) -> Dict:
+    '''
+    Merge the new dict into parent.  Existing items are overwritten,
+    dicts are merged recursively, lists are combined as sets.
+    '''
+
+    for k, v in new.items():
+        if k in parent:
+            if isinstance(v, dict):
+                parent[k] = merge_dicts(parent[k], v)
+
+            else:
+                parent[k] = v
+        else:
+            parent[k] = v
+
+    return parent
+
+
+def merge_lists(parent: List, new: List) -> List:
+    '''
+    Merge new list into parent.  If new item isn't in list, add it.
+    Overwriting and nesting is not supported as it seems ill-defined.
+    '''
+    for i, v in enumerate(new):
+        if v not in parent:
+            parent.append(v)
+
+    return parent
+
+
+def get_nested(config: Dict, keys: str):
+    '''
+    Return the value of the nested keys, or none if the key is invalid
+    keys is a period separated list of keys as a string
+    '''
+    keys = keys.split('.')
+    value = config
+    try:
+        for k in keys:
+            value = value[k]
+    except KeyError:
+        return None
+    return value
+
+
+def check_wildcards(path: str, wildcards: str) -> bool:
+    '''
+    Check if the supplied path contains all required wildcards
+    wildcards are provided as a comma separated list string
+    returns true if all wildcards are present in path, e.g. {wildcard} in path
+    else raises a ValueError with the unfound wildcard
+    '''
+    for wildcard in wildcards.split(','):
+        if f'{{{wildcard}}}' not in path:
+            err = f'{{{wildcard}}} not found in {path}'
+            log.exception(err)
+            raise ValueError(err)
+
+    return True
+
+
+def get_states(config: Dict) -> Tuple[List, List]:
+    '''
+    From the provided config dict, build lists of known and unknown states
+    from the analysis params
+    '''
+
+    ref = get_nested(config, 'analysis_params.reference.name')
+    if ref is None:
+        ref = []
+    else:
+        ref = [ref]
+
+    known = get_nested(config, 'analysis_params.known_states')
+    if known is None:
+        known = []
+
+    known_states = ref + [s['name'] for s in known]
+
+    unknown = get_nested(config, 'analysis_params.unknown_states')
+    if unknown is None:
+        unknown = []
+
+    unknown_states = [s['name'] for s in unknown]
+
+    return known_states, unknown_states
+
+
+def validate(config: Dict,
+             path: str,
+             exception: str,
+             value: str = None):
+    '''
+    validate the supplied value, raising exception if no value is found
+    config: the config dictionary to lookup
+    path: the path in nested config dict
+    exception: string to display if no value is found
+    value: starting value. values of None or '' will cause lookup into config
+    '''
+
+    if value is None or value == '':
+        value = get_nested(config, path)
+
+    if value is None:
+        log.exception(exception)
+        raise ValueError(exception)
+
+    return value

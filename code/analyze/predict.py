@@ -1,4 +1,5 @@
 import copy
+import os
 import gzip
 import itertools
 from collections import defaultdict, Counter
@@ -9,6 +10,9 @@ import global_params as gp
 from misc import read_fasta
 import numpy as np
 from typing import List, Dict, Tuple, TextIO
+from contextlib import ExitStack
+import logging as log
+from misc.read_fasta import read_fasta
 
 
 def process_predict_args(arg_list: List[str]) -> Dict:
@@ -637,3 +641,41 @@ def write_state_probs(probs: Dict[str, List[float]],
          for i, state in enumerate(states)]))
 
     writer.write('\n')
+
+
+def run(known_states, unknown_states,
+        hmm_initial, hmm_trained,
+        blocks, positions, probabilities,
+        chromosomes, strains, alignment):
+
+    emission_symbols = get_emis_symbols(known_states)
+
+    with open(hmm_initial, 'w') as initial, \
+            open(hmm_trained, 'w') as trained, \
+            gzip.open(positions, 'wt') as positions, \
+            gzip.open(probabilities, 'wt') as probabilities, \
+            ExitStack() as stack:
+
+        block_writers = {state:
+                         stack.enter_context(
+                             open(blocks.format(state=state), 'w'))
+                         for state in known_states + unknown_states}
+
+        write_hmm_header(known_states, unknown_states,
+                         emission_symbols, initial)
+        write_hmm_header(known_states, unknown_states,
+                         emission_symbols, trained)
+
+        for chrom in chromosomes:
+            for strain in strains:
+                log.info(f'working on: {strain} {chrom}')
+                alignment_file = alignment.format(strain=strain, chrom=chrom)
+
+                headers, sequences = read_fasta(alignment_file)
+
+                references = sequences[:-1]
+                predicted = sequences[-1]
+
+                states, probabilities, hmm_trained, hmm_initial, positions =\
+                    predict_introgressed(references, predicted,
+                                         ARGS, train=True)

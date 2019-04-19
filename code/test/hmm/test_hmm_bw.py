@@ -189,7 +189,8 @@ def test_emission_probabilities(hm3):
     den = np.logaddexp.reduce(gamma, axis=0)
     den = np.logaddexp.reduce(den, axis=0)
 
-    obs = np.array([i == hm.observations for i in range(len(hm.observed_states))])
+    obs = np.array([i == hm.observations
+                    for i in range(len(hm.observed_states))])
     obs = np.moveaxis(obs, [0, 1, 2], [2, 0, 1])
     gam = np.where(obs[:, :, None, :], gamma[:, :, :, None], np.NINF)
     num = np.logaddexp.reduce(np.logaddexp.reduce(gam))
