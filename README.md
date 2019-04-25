@@ -38,7 +38,7 @@ With the package installed and the conda environment activated, main methods
 are accessed with the `introgression` command. Some documentation is provided
 by adding the argument `--help` to introgression or any of its subcommands.
 
-### introgression
+#### introgression
 Options include:
 - --config: specify one or more configuration files.  Files are evaluated in
 order.  Conflicting values are overwritten by the newest file. This allows a
@@ -46,8 +46,13 @@ base configuration for the system and analysis-specific configurations added
 as needed.
 - verbosity: set by varying the number of v's attached to the option, with 
 `-v` indicating a log level of critical and `-vvvvv` indicating debug logging.
+
 Available subcommands are:
-- predict
+##### predict
+A brief description of what this does.
+
+Available options are:
+- forthcoming...
 
 ## License
 TBD
