@@ -2,6 +2,7 @@ from hmm import hmm_bw as hmm
 import pytest
 from pytest import approx
 import numpy as np
+import logging as log
 
 
 def test_init():
@@ -42,11 +43,15 @@ def test_setters():
     assert '[0, 0] 0' in str(e)
 
 
-def test_print_results(capsys, hm):
-    hm.print_results(0, 1)
-    captured = capsys.readouterr()
-    out = captured.out.split('\n')
+def test_print_results(mocker, hm):
+    mock_debug = mocker.patch('hmm.hmm_bw.log.debug')
+    log.basicConfig(level=log.DEBUG)
 
+    hm.print_results(0, 1)
+    captured = mock_debug.call_args[0][0]
+    out = captured.split('\n')
+
+    print('\n'.join(out))
     assert out[0] == 'Iterations: 0'
     assert out[2] == 'Log Likelihood:'
     assert out[5] == 'Initial State Probabilities:'
@@ -69,10 +74,14 @@ def test_print_results(capsys, hm):
     assert float(out[19].split('=')[1]) == 0.8
 
 
-def test_train(capsys, hm):
+def test_train(mocker, hm):
+    mock_debug = mocker.patch('hmm.hmm_bw.log.debug')
+    log.basicConfig(level=log.DEBUG)
+
     hm.train()
     # get output from last report
-    out = capsys.readouterr().out.split('\n')[-23:]
+    captured = mock_debug.call_args[0][0]
+    out = captured.split('\n')[-23:]
     assert out[0] == 'Iterations: 2'
     assert out[2] == 'Log Likelihood:'
     assert out[5] == 'Initial State Probabilities:'

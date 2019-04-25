@@ -1,5 +1,6 @@
 import numpy as np
 from typing import List, Dict, Tuple
+import logging as log
 
 
 class HMM:
@@ -92,40 +93,36 @@ class HMM:
         '''
         Write current state of HMM to stdout
         '''
-        print(
-            f'''Iterations: {iterations}
+        message = f'Iterations: {iterations}\n\nLog Likelihood:\n{LL:.30e}'
 
-Log Likelihood:
-{LL:.30e}
-
-Initial State Probabilities:'''
-        )
+        message += '\n\nInitial State Probabilities:\n'
         for i in range(len(self.hidden_states)):
-            print(f"{self.hidden_states[i]}={self.initial_p[i]:.30e}")
-        print()
-        print("Transition Probabilities:")
+            message += f'{self.hidden_states[i]}={self.initial_p[i]:.30e}\n'
+
+        message += '\nTransition Probabilities:\n'
         for i in range(len(self.hidden_states)):
             for j in range(len(self.hidden_states)):
-                print(f"{self.hidden_states[i]},{self.hidden_states[j]}\
-                    ={self.transitions[i][j]:.30e}")
-        print()
-        print("Emission Probabilities:")
+                message += f"{self.hidden_states[i]},{self.hidden_states[j]}\
+                    ={self.transitions[i][j]:.30e}\n"
+
+        message += '\nEmission Probabilities:\n'
         for i in range(len(self.hidden_states)):
             for k in sorted(self.observed_states):
-                print(f"{self.hidden_states[i]},{k}=\
-                      {self.emissions[i, self.symbol_to_ind[k]]:.30e}")
-        print()
+                message += f"{self.hidden_states[i]},{k}=\
+                    {self.emissions[i, self.symbol_to_ind[k]]:.30e}\n"
+        message += '\n'
+        log.debug(message)
 
     def train(self,
-           improvement_frac: float = .01,
-           max_iterations: int = None) -> None:
+              improvement_frac: float = 0.01,
+              max_iterations: int = None) -> None:
         '''
         Train the hmm until either the max iterations is reached or
         the log likelihood fails to improve beyond the improvement factor
         '''
 
         # calculate current log likelihood
-        print("calculating alpha")
+        log.debug('calculating alpha')
         alpha = self.forward()
 
         LL = self.log_likelihood(alpha)
@@ -141,32 +138,32 @@ Initial State Probabilities:'''
                and iterations < max_iterations)\
                 or LL - prev_LL > threshold:
 
-            print(f"Iteration {iterations}")
+            log.info(f'Iteration {iterations}')
 
-            print("calculating beta")
+            log.debug('calculating beta')
             beta = self.backward()
-            print("calculating gamma")
+            log.debug('calculating gamma')
             gamma = self.state_probs(alpha, beta)
-            print("calculating xi")
+            log.debug('calculating xi')
             xi = self.bw(alpha, beta)
 
-            print("updating parameters")
+            log.debug('updating parameters')
 
             self.initial_p = self.initial_probabilities(gamma)
             self.transitions = self.transition_probabilities(xi, gamma)
             self.emissions = self.emission_probabilities(gamma)
 
             assert np.isclose(np.sum(self.initial_p), 1), \
-                f"{beta}\n{np.sum(self.initial_p)} {self.initial_p}"
+                f'{beta}\n{np.sum(self.initial_p)} {self.initial_p}'
             for t in self.transitions:
                 assert np.isclose(np.sum(t), 1), \
-                    f"{xi} {gamma} {np.sum(t)} {t}"
+                    f'{xi} {gamma} {np.sum(t)} {t}'
             for e in self.emissions:
-                assert np.isclose(np.sum(e), 1), f"{np.sum(e.values())} {e}"
+                assert np.isclose(np.sum(e), 1), f'{np.sum(e.values())} {e}'
 
             iterations += 1
 
-            print("calculating alpha")
+            log.debug("calculating alpha")
             alpha = self.forward()
 
             prev_LL = LL
@@ -176,11 +173,11 @@ Initial State Probabilities:'''
             self.print_results(iterations, LL)
 
             if LL < prev_LL and not np.isclose(LL, prev_LL):
-                # NOTE does not stop execution
-                print('PROBLEM: log-likelihood stopped increasing; \
-                      stopping training now')
+                log.error('PROBLEM: log-likelihood stopped increasing; '
+                          'stopping training now')
+                return
 
-        print(f"finished in {iterations} iterations")
+        log.info(f'finished in {iterations} iterations')
 
     def log_likelihood(self, alpha: np.array) -> float:
         '''

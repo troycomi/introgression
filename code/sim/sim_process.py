@@ -318,10 +318,8 @@ def threshold_predicted(predicted: List[str],
     Given a list of states, predicted, and the associated probabilities, probs
     Converts any states with probability < threshold to the default state
     '''
-    predicted_thresholded = np.array(predicted)
     probs = np.array(probs)
-    predicted_thresholded[probs < threshold] = default_state
-    return list(predicted_thresholded)
+    return list(np.where(probs < threshold, default_state, predicted))
 
 
 def fill_seq(seq, polymorphic_sites, nsites, fill):

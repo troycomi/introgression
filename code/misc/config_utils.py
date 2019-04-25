@@ -176,6 +176,8 @@ def get_nested(config: Dict, keys: str):
     Return the value of the nested keys, or none if the key is invalid
     keys is a period separated list of keys as a string
     '''
+    if config is None:
+        return None
     keys = keys.split('.')
     value = config
     try:

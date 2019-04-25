@@ -7,7 +7,6 @@ from collections import defaultdict, Counter
 from hmm import hmm_bw
 from sim import sim_predict
 from sim import sim_process
-import global_params as gp
 import numpy as np
 from typing import List, Dict, Tuple, TextIO
 from contextlib import ExitStack
@@ -17,11 +16,13 @@ from misc.config_utils import (check_wildcards, validate,
                                get_states, get_nested)
 
 
+# TODO remove gp references for symbols. pass args or fold into object?
 def process_predict_args(arg_list: List[str]) -> Dict:
     '''
     Parses arguments from argv, producing dictionary of parsed values
     '''
 
+    import global_params as gp
     d = {}
     i = 0
 
@@ -84,6 +85,7 @@ class Predictor():
     def __init__(self, configuration: Dict):
         self.config = configuration
         self.known_states, self.unknown_states = get_states(self.config)
+        self.states = self.known_states + self.unknown_states
         self.chromosomes = None
         self.blocks = None
         self.prefix = None
@@ -93,6 +95,7 @@ class Predictor():
         self.positions = None
         self.probabilities = None
         self.alignment = None
+        self.threshold = None
 
     def set_chromosomes(self):
         '''
@@ -122,9 +125,31 @@ class Predictor():
         build it from the known states
         '''
         if prefix == '':
+            if self.known_states == []:
+                err = 'Unable to build prefix, no known states provided'
+                log.exception(err)
+                raise ValueError(err)
+
             self.prefix = '_'.join(self.known_states)
         else:
             self.prefix = prefix
+
+    def set_threshold(self, threshold: str = None):
+        '''
+        Set the threshold. Checks if set and converts to float if possible
+        '''
+        self.threshold = validate(
+            self.config,
+            'analysis_params.threshold',
+            'No threshold provided',
+            threshold)
+        try:
+            self.threshold = float(self.threshold)
+        except ValueError:
+            if self.threshold != 'viterbi':
+                err = f'Unsupported threshold value: {self.threshold}'
+                log.exception(err)
+                raise ValueError(err)
 
     def set_strains(self, test_strains: str = ''):
         '''
@@ -135,32 +160,40 @@ class Predictor():
         else:
             # need to support list for test strains
             test_strains = [test_strains]
-        for test_strain in test_strains:
-            check_wildcards(test_strain, 'strain,chrom')
+
+        if test_strains is not None:
+            for test_strain in test_strains:
+                check_wildcards(test_strain, 'strain,chrom')
 
         self.find_strains(test_strains)
 
-    def find_strains(self, test_strains: List[str]):
+    def find_strains(self, test_strains: List[str] = None):
         '''
         Helper method to get strains supplied in config, or from test_strains
         '''
         strains = get_nested(self.config, 'strains')
+        self.test_strains = test_strains
 
         if strains is None:
+            if test_strains is None:
+                err = ('Unable to find strains in config and '
+                       'no test_strains provided')
+                log.exception(err)
+                raise ValueError(err)
+
             # try to build strains from wildcards in test_strains
             strains = {}
-            for test_strain in self.test_strains:
+            for test_strain in test_strains:
                 # find matching files
                 strain_glob = test_strain.format(
-                    prefix=self.prefix,
                     strain='*',
                     chrom='*')
                 log.info(f'searching for {strain_glob}')
                 for fname in glob.iglob(strain_glob):
                     # extract wildcard matches
+                    print(fname)
                     match = re.match(
                         test_strain.format(
-                            prefix=self.prefix,
                             strain='(?P<strain>.*?)',
                             chrom='(?P<chrom>[^_]*?)'
                         ),
@@ -175,19 +208,22 @@ class Predictor():
 
             if len(strains) == 0:
                 err = ('Found no chromosome sequence files '
-                       f'in {self.test_strains}')
+                       f'in {test_strains}')
                 log.exception(err)
                 raise ValueError(err)
 
             for strain, chroms in strains.items():
                 if len(self.chromosomes) != len(chroms):
                     err = (f'Strain {strain} has incorrect number of '
-                           f'chromosomes. Expected {len(chromosomes)} '
+                           f'chromosomes. Expected {len(self.chromosomes)} '
                            f'found {len(chroms)}')
                     log.exception(err)
                     raise ValueError(err)
 
-        self.strains = list(sorted(strains.keys()))
+            self.strains = list(sorted(strains.keys()))
+
+        else:  # strains set in config
+            self.strains = list(sorted(set(strains)))
 
     def set_output_files(self,
                          hmm_initial: str,
@@ -210,10 +246,11 @@ class Predictor():
                                     'No trained hmm file provided',
                                     hmm_trained)
 
-        self.positions = validate(self.config,
-                                  'paths.analysis.positions',
-                                  'No positions file provided',
-                                  positions)
+        if positions == '':
+            self.positions = get_nested(self.config,
+                                        'paths.analysis.positions')
+        else:
+            self.positions = positions
 
         self.probabilities = validate(self.config,
                                       'paths.analysis.probabilities',
@@ -230,7 +267,7 @@ class Predictor():
     def validate_arguments(self):
         '''
         Check that all required instance variables are set to perform a
-        prediction run
+        prediction run. Returns true if valid, raises value error otherwise
         '''
         args = [
             'chromosomes',
@@ -239,9 +276,11 @@ class Predictor():
             'strains',
             'hmm_initial',
             'hmm_trained',
-            'positions',
             'probabilities',
             'alignment',
+            'known_states',
+            'unknown_states',
+            'threshold',
         ]
         variables = self.__dict__
         for arg in args:
@@ -251,40 +290,109 @@ class Predictor():
                 log.exception(err)
                 raise ValueError(err)
 
-    def run_prediction(self):
+        # check the parameters for each state are present
+        known_states = get_nested(self.config,
+                                  'analysis_params.known_states')
+        if known_states is None:
+            err = 'Configuration did not provide any known_states'
+            log.exception(err)
+            raise ValueError(err)
+
+        for s in known_states:
+            if 'expected_length' not in s:
+                err = f'{s["name"]} did not provide an expected_length'
+                log.exception(err)
+                raise ValueError(err)
+            if 'expected_fraction' not in s:
+                err = f'{s["name"]} did not provide an expected_fraction'
+                log.exception(err)
+                raise ValueError(err)
+
+        unknown_states = get_nested(self.config,
+                                    'analysis_params.unknown_states')
+        if unknown_states is not None:
+            for s in unknown_states:
+                if 'expected_length' not in s:
+                    err = f'{s["name"]} did not provide an expected_length'
+                    log.exception(err)
+                    raise ValueError(err)
+                if 'expected_fraction' not in s:
+                    err = f'{s["name"]} did not provide an expected_fraction'
+                    log.exception(err)
+                    raise ValueError(err)
+
+        reference = get_nested(self.config,
+                               'analysis_params.reference')
+        if reference is None:
+            err = f'Configuration did not specify a reference strain'
+            log.exception(err)
+            raise ValueError(err)
+
+        return True
+
+    def run_prediction(self, only_poly_sites=True):
         '''
         Run prediction with this predictor object
         '''
-        self.emission_symbols = get_emis_symbols(self.known_states)
+        self.validate_arguments()
+
+        hmm_builder = HMM_Builder(self.config)
+        hmm_builder.set_expected_values()
+        self.emission_symbols = \
+            hmm_builder.update_emission_symbols(len(self.known_states))
 
         with open(self.hmm_initial, 'w') as initial, \
                 open(self.hmm_trained, 'w') as trained, \
-                gzip.open(self.positions, 'wt') as positions, \
                 gzip.open(self.probabilities, 'wt') as probabilities, \
                 ExitStack() as stack:
+
+            self.write_hmm_header(initial)
+            self.write_hmm_header(trained)
+
+            if self.positions is not None:
+                positions = stack.enter_context(
+                    gzip.open(self.positions, 'wt'))
+            else:
+                positions = None
 
             block_writers = {state:
                              stack.enter_context(
                                  open(self.blocks.format(state=state), 'w'))
                              for state in
-                             self.known_states + self.unknown_states}
+                             self.states}
+            for writer in block_writers.values():
+                self.write_blocks_header(writer)
 
-            self.write_hmm_header(initial)
-            self.write_hmm_header(trained)
-
-            for chrom in chromosomes:
-                for strain in strains:
+            for chrom in self.chromosomes:
+                for strain in self.strains:
                     log.info(f'working on: {strain} {chrom}')
-                    alignment_file = alignment.format(strain=strain, chrom=chrom)
 
-                    headers, sequences = read_fasta(alignment_file)
+                    # get sequences and encode
+                    alignment_file = self.alignment.format(
+                        strain=strain, chrom=chrom)
 
-                    references = sequences[:-1]
-                    predicted = sequences[-1]
+                    hmm_initial, hmm_trained, pos = hmm_builder.run_hmm(
+                        alignment_file, only_poly_sites)
 
-                    states, probabilities, hmm_trained, hmm_initial, positions =\
-                        predict_introgressed(references, predicted,
-                                             ARGS, train=True)
+                    self.write_hmm(hmm_initial, initial, strain, chrom)
+                    self.write_hmm(hmm_trained, trained, strain, chrom)
+
+                    # process and threshold hmm result
+                    predicted_states, probs = self.process_path(hmm_trained)
+                    state_blocks = self.convert_to_blocks(predicted_states)
+
+                    if positions is not None:
+                        self.write_positions(pos, positions, strain, chrom)
+
+                    for state, block in state_blocks.items():
+                        self.write_blocks(block,
+                                          pos,
+                                          block_writers[state],
+                                          strain,
+                                          chrom,
+                                          state)
+
+                    self.write_state_probs(probs, probabilities, strain, chrom)
 
     def write_hmm_header(self, writer: TextIO) -> None:
         '''
@@ -308,389 +416,519 @@ class Predictor():
 
         writer.write('\n')
 
-def set_expectations(args: Dict, n: int) -> None:
-    '''
-    sets expected number of tracts and bases for each reference
-    based on expected length of introgressed tracts and expected
-    total fraction of genome
-    also takes n, length of the sequence to analyze
-    '''
+    def write_hmm(self,
+                  hmm: hmm_bw.HMM,
+                  writer: TextIO,
+                  strain: str,
+                  chrm: str):
+        '''
+        Write information on the provided hmm as a line to the supplied textIO
+        object.
+        Output is tab delimited with:
+        strain chromosome initial_probs emissions transitions
+        '''
+        writer.write(f'{strain}\t{chrm}\t')
+
+        states = len(hmm.hidden_states)
+        writer.write('\t'.join(
+            [f'{p}' for p in hmm.initial_p] +  # initial
+            [f'{hmm.emissions[i, hmm.symbol_to_ind[symbol]]}'
+             if symbol in hmm.symbol_to_ind else '0.0'
+             for i in range(states)
+             for symbol in self.emission_symbols] +  # emission
+            [f'{hmm.transitions[i, j]}'
+             for i in range(states)
+             for j in range(states)]  # transition
+        ))
+        writer.write('\n')
+
+    def write_blocks_header(self, writer: TextIO) -> None:
+        '''
+        Write header line to tab delimited block file:
+        strain chromosome predicted_species start end num_sites_hmm
+        '''
+        # NOTE: num_sites_hmm represents the sites considered by the HMM,
+        # so it might exclude non-polymorphic sites in addition to gaps
+        writer.write('\t'.join(['strain',
+                                'chromosome',
+                                'predicted_species',
+                                'start',
+                                'end',
+                                'num_sites_hmm'])
+                     + '\n')
+
+    def write_blocks(self,
+                     state_seq_blocks: List[Tuple[int, int]],
+                     positions: np.array,
+                     writer: TextIO,
+                     strain: str,
+                     chrm: str,
+                     species_pred: str) -> None:
+        '''
+        Write entry into tab delimited block file, with columns:
+        strain chromosome predicted_species start end num_sites_hmm
+        '''
+        writer.write('\n'.join(
+            ['\t'.join([strain,
+                        chrm,
+                        species_pred,
+                        str(positions[start]),
+                        str(positions[end]),
+                        str(end - start + 1)])
+             for start, end in state_seq_blocks]))
+        if state_seq_blocks:  # ensure ends with \n
+            writer.write('\n')
+
+    def write_positions(self,
+                        positions: np.array,
+                        writer: TextIO,
+                        strain: str,
+                        chrm: str) -> None:
+        '''
+        Write the positions of the specific strain, chromosome as a line to the
+        provided textIO object
+        '''
+        writer.write(f'{strain}\t{chrm}\t' +
+                     '\t'.join([str(x) for x in positions]) + '\n')
+
+    def write_state_probs(self,
+                          probs: Dict[str, List[float]],
+                          writer: TextIO,
+                          strain: str,
+                          chrm: str) -> None:
+        '''
+        Write the probability of each state to the supplied textIO object
+        Output is tab delimited with:
+        strain chrom state1:prob1,prob2,...,probn state2...
+        '''
+        writer.write(f'{strain}\t{chrm}\t')
+
+        writer.write('\t'.join(
+            [f'{state}:' +
+             ','.join([f'{site[i]:.5f}' for site in probs])
+             for i, state in enumerate(self.states)]))
+
+        writer.write('\n')
+
+    def process_path(self, hmm: hmm_bw.HMM) -> Tuple[List[str], np.array]:
+        '''
+        Process the hmm path based the the predictor threshold value
+        Return the predicted states and the probabilities of the master
+        reference sequence
+        '''
+        probabilities = hmm.posterior_decoding()[0]
+
+        # posterior
+        if type(self.threshold) is float:
+            path, path_probs = sim_process.get_max_path(probabilities,
+                                                        hmm.hidden_states)
+            path_t = sim_process.threshold_predicted(path, path_probs,
+                                                     self.threshold,
+                                                     self.known_states[0])
+            return path_t, probabilities
 
-    species_to = args['known_states'][0]
-    species_from = args['known_states'][1:]
-
-    args['expected_num_tracts'] = {}
-    args['expected_bases'] = {}
-    for s in species_from:
-        args['expected_num_tracts'][s] = \
-            args['expected_frac'][s] * n / args['expected_length'][s]
-        args['expected_bases'][s] = args['expected_num_tracts'][s] * \
-            args['expected_length'][s]
-
-    args['expected_bases'][species_to] = \
-        n - sum([args['expected_bases'][s] for s in species_from])
-
-    args['expected_num_tracts'][species_to] = \
-        sum([args['expected_num_tracts'][s] for s in species_from]) + 1
-
-    args['expected_length'][species_to] = \
-        args['expected_bases'][species_to] /\
-        args['expected_num_tracts'][species_to]
-
-
-def ungap_and_code(predict_seq: str,
-                   ref_seqs: List[str],
-                   index_ref: int = 0) -> Tuple[np.array, np.array]:
-    '''
-    Remove any sequence locations where a gap is present and code
-    into matching or mismatching sequence
-    Returns the coded sequences, by default an array of + where matching, -
-    where mismatching.  Also return the positions where the sequences are not
-    gapped.
-    '''
-    # index_ref is index of reference strain to index relative to
-    # build character array
-    sequences = np.array([list(predict_seq)] +
-                         [list(r) for r in ref_seqs])
-
-    isbase = sequences != gp.gap_symbol
-
-    # make boolean for valid characters
-    isvalid = np.logical_and(sequences != gp.gap_symbol,
-                             sequences != gp.unsequenced_symbol)
-
-    # positions are where everything is valid, index where the reference is
-    # valid.  The +1 removes the predict sequence at index 0
-    positions = np.where(
-        np.all(isvalid[:, isbase[index_ref+1, :]], axis=0))[0]
-
-    matches = np.where(sequences[0] == sequences[1:],
-                       gp.match_symbol,
-                       gp.mismatch_symbol)
-
-    matches = np.fromiter((''.join(row)
-                           for row in np.transpose(
-                               matches[:, np.all(isvalid, axis=0)])),
-                          dtype=f'U{len(sequences) - 1}')
-
-    return matches, positions
-
-
-def poly_sites(sequences: np.array,
-               positions: np.array) -> Tuple[np.array, np.array]:
-    '''
-    Remove all sequences where the sequence is all match_symbol
-    Returns the filtered sequence and position
-    '''
-    seq_len = len(sequences[0])
-    # check if seq only contains match_symbol
-    retain = np.vectorize(
-        lambda x: x.count(gp.match_symbol) != seq_len)(sequences)
-    indices = np.where(retain)[0]
-
-    ps_poly = positions[indices]
-    seq_poly = sequences[indices]
-
-    return seq_poly, ps_poly
-
-
-def get_symbol_freqs(sequence: np.array) -> Tuple[Dict, Dict, List]:
-    '''
-    Calculate metrics from the provided, coded sequence
-    Returns:
-    the fraction matching for each species
-    the fraction of each matching pattern (e.g. +--++)
-    the weighted fraction of matches for each species
-    '''
-
-    individual = []
-    weighted = []
-
-    symbols = defaultdict(int, Counter(sequence))
-    total = len(sequence)
-    for k in symbols:
-        symbols[k] /= total
-
-    sequence = np.array([list(s) for s in sequence])
-
-    # look along species
-    for s in np.transpose(sequence):
-        s = ''.join(s)
-        counts = Counter(s)
-        weighted.append(counts[gp.match_symbol])
-        total = sum(counts.values())
-        for k in counts:
-            counts[k] /= total
-        individual.append(defaultdict(int, counts))
-
-    total = sum(weighted)
-    weighted = [w / total for w in weighted]
-    return individual, symbols, weighted
-
-
-def initial_probabilities(known_states: List[str],
-                          unknown_states: List[str],
-                          expected_frac: Dict,
-                          weighted_match_freqs: List[float]) -> np.array:
-    '''
-    Estimate the initial probability of being in each state
-    based on the number of states and their expected fractions
-    Returns the initial probability of each state
-    '''
-
-    init = []
-    expectation_weight = .9
-    for s, state in enumerate(known_states):
-        expected = expected_frac[state]
-        estimated = weighted_match_freqs[s]
-        init.append(expected * expectation_weight +
-                    estimated * (1 - expectation_weight))
-
-    for state in unknown_states:
-        expected_frac = expected_frac[state]
-        init.append(expected_frac)
-
-    return init / np.sum(init)
-
-
-def emission_probabilities(known_states: List[str],
-                           unknown_states: List[str],
-                           symbols: List[str]) -> List[Dict]:
-    '''
-    Estimate initial emission probabilities
-    Return estimates as list of default dict of probabilities
-    '''
-
-    probabilities = {
-        gp.mismatch_symbol + gp.match_symbol: 0.9,
-        gp.match_symbol + gp.match_symbol: 0.09,
-        gp.mismatch_symbol + gp.mismatch_symbol: 0.009,
-        gp.match_symbol + gp.mismatch_symbol: 0.001,
-    }
-
-    mismatch_bias = .99
-
-    num_per_category = 2 ** (len(known_states) - 2)
-    for key in probabilities:
-        probabilities[key] *= num_per_category
-
-    # for known states
-    symbol_array = np.array([list(s) for s in symbols], dtype='<U1')
-    # for unknown states
-    symbol_length = symbol_array.shape[1]
-    number_matches = (symbol_array == gp.match_symbol).sum(axis=1)
-    # combine first column with rest to generate probabilities
-    first_column = np.tile(symbol_array[:, 0:1], (1, len(known_states)))
-    symbol_array = np.core.defchararray.add(
-        first_column, symbol_array[:, 0:len(known_states)])
-    # index into probabilities and normalize
-    emissions = np.vectorize(probabilities.__getitem__)(symbol_array)
-    emissions /= sum(emissions)
-
-    # convert to match * (1-bias) + mismatch * bias, simplified
-    number_matches = (number_matches + mismatch_bias *
-                      (symbol_length - 2 * number_matches))
-    number_matches /= sum(number_matches)
-    # repeat for each unknown state
-    number_matches = np.transpose(
-        np.tile(number_matches, (len(unknown_states), 1)))
-
-    result = [defaultdict(float,
-                          {k: v for k, v in
-                           zip(symbols, emissions[:, i])})
-              for i in range(emissions.shape[1])]
-    result.extend([defaultdict(float,
-                               {k: v for k, v in
-                                zip(symbols, number_matches[:, i])})
-                   for i in range(number_matches.shape[1])])
-
-    return result
-
-
-def transition_probabilities(known_states: List[str],
-                             unknown_states: List[str],
-                             expected_frac: Dict,
-                             expected_lengths: Dict) -> np.array:
-    '''
-    Estimate initial transition probabilities
-    '''
-
-    # doesn't depend on sequence observations but maybe it should?
-
-    # also should we care about number of tracts rather than fraction
-    # of genome? maybe theoretically, but that number is a lot more
-    # suspect
-
-    states = known_states + unknown_states
-
-    fractions = np.array([expected_frac[s] for s in states])
-    lengths = 1/np.array([expected_lengths[s] for s in states])
-
-    # general case,
-    # trans[i,j] = 1/ length[i] * expected[j] * 1 /(1 - fraction[i])
-    transitions = np.outer(
-        np.multiply(lengths, 1/(1-fractions)),
-        fractions)
-    # when i == j, trans[i,j] = 1 - 1/length[i]
-    np.fill_diagonal(transitions, 1-lengths)
-
-    # normalize
-    return transitions / transitions.sum(axis=1)[:, None]
-
-
-def initial_hmm_parameters(seq: np.array,
-                           known_states: List[str],
-                           unknown_states: List[str],
-                           expected_frac: Dict,
-                           expected_lengths: Dict) -> hmm_bw.HMM:
-    '''
-    Build a HMM object initialized based on expected values and provided data
-    '''
-
-    # get frequencies of individual symbols (e.g. '+') and all full
-    # combinations of symbols (e.g. '+++-')
-    (individual_symbol_freqs,
-     symbol_freqs,
-     weighted_match_freqs) = get_symbol_freqs(seq)
-
-    init = initial_probabilities(known_states, unknown_states,
-                                 expected_frac, weighted_match_freqs)
-    emis = emission_probabilities(known_states,
-                                  unknown_states,
-                                  symbol_freqs.keys())
-    trans = transition_probabilities(known_states, unknown_states,
-                                     expected_frac, expected_lengths)
-
-    # new Hidden Markov Model
-    hmm = hmm_bw.HMM()
-
-    hmm.set_initial_p(init)
-    hmm.set_emissions(emis)
-    hmm.set_transitions(trans)
-    return hmm
-
-
-def predict_introgressed(ref_seqs: np.array,
-                         predict_seq: np.array,
-                         predict_args: Dict,
-                         train: bool = True,
-                         only_poly_sites: bool = True,
-                         return_positions: bool = False) -> Tuple[
-                             List[str],
-                             np.array,
-                             hmm_bw.HMM,
-                             hmm_bw.HMM,
-                             np.array
-                         ]:
-    '''
-    Predict regions of introgression within the predicted sequence
-    ref_seqs: 2d np character array of the reference sequences
-    predict_seq: np character array of the sequence to perform prediction on
-    train: control whether or not to perform Baum-Welch estimation on HMM
-    only_poly_sites: control if only polymorphic sites should be considered
-    return_positions: if true, only the position of sites in reference sequence
-    is returned
-    Generally will return a tuple of the following:
-    The predicted types as a list of states
-    The posterior decoding of the trained HMM
-    The trained HMM object
-    The untrained HMM without sequences
-    The positions of sites with respect to the reference sequence
-    '''
-
-    # code sequence by which reference it matches at each site;
-    # positions are relative to master (first) reference sequence
-    seq_coded, positions = ungap_and_code(predict_seq, ref_seqs)
-    if only_poly_sites:
-        seq_coded, positions = poly_sites(seq_coded, positions)
-    if return_positions:
-        return positions
-
-    set_expectations(predict_args, len(predict_seq))
-
-    # set initial hmm parameters based on combination of (1) initial
-    # expectations (length of introgressed tract and fraction of
-    # genome/total number tracts and bases) and (2) number of sites at
-    # which predict seq matches each reference
-    hmm = initial_hmm_parameters(seq_coded,
-                                 predict_args['known_states'],
-                                 predict_args['unknown_states'],
-                                 predict_args['expected_frac'],
-                                 predict_args['expected_length'])
-
-    # make predictions
-
-    # set states and initial probabilties
-    hmm.set_hidden_states(predict_args['states'])
-
-    # copy before setting observations to save memory
-    hmm_init = copy.deepcopy(hmm)
-
-    # set obs
-    hmm.set_observations([seq_coded])
-
-    # optional Baum-Welch parameter estimation
-    if train:
-        hmm.train(predict_args['improvement_frac'])
-
-    p = hmm.posterior_decoding()
-    path, path_probs = sim_process.get_max_path(p[0], hmm.hidden_states)
-
-    # posterior
-    if type(predict_args['threshold']) is float:
-        path_t = sim_process.threshold_predicted(path, path_probs,
-                                                 predict_args['threshold'],
-                                                 predict_args['states'][0])
-        return path_t, p[0], hmm, hmm_init, positions
-
-    else:
-        hmm.set_observations([seq_coded])
-        predicted = sim_predict.convert_predictions(hmm.viterbi(),
-                                                    predict_args['states'])
-        return predicted, p[0], hmm, hmm_init, positions
-
-
-def convert_to_blocks(state_seq: List[str],
-                      states: List[str]) -> Dict[
-                          str, List[Tuple[int, int]]]:
-    '''
-    Convert a list of sequences into a structure with start and end positions
-    Return structure is a dict keyed on species with values of Lists of
-    each block, which is a tuple with start and end positions
-    '''
-    # single individual state sequence
-    blocks = {}
-    for state in states:
-        blocks[state] = []
-    prev_species = state_seq[0]
-    block_start = 0
-    block_end = 0
-    for i in range(len(state_seq)):
-        if state_seq[i] == prev_species:
-            block_end = i
         else:
-            blocks[prev_species].append((block_start, block_end))
-            block_start = i
-            block_end = i
-            prev_species = state_seq[i]
-    # add last block
-    if prev_species not in blocks:
-        blocks[prev_species] = []
-    blocks[prev_species].append((block_start, block_end))
+            predicted = sim_predict.convert_predictions(hmm.viterbi(),
+                                                        self.states)
+            return predicted, probabilities
 
-    return blocks
+    def convert_to_blocks(self,
+                          state_seq: List[str]) -> Dict[
+                              str, List[Tuple[int, int]]]:
+        '''
+        Convert a list of sequences into a structure of start and end positions
+        Return structure is a dict keyed on species with values of Lists of
+        each block, which is a tuple with start and end positions
+        '''
+        # single individual state sequence
+        blocks = {}
+        for state in self.states:
+            blocks[state] = []
+        prev_species = state_seq[0]
+        block_start = 0
+        block_end = 0
+        for i in range(len(state_seq)):
+            if state_seq[i] == prev_species:
+                block_end = i
+            else:
+                blocks[prev_species].append((block_start, block_end))
+                block_start = i
+                block_end = i
+                prev_species = state_seq[i]
+        # add last block
+        if prev_species not in blocks:
+            blocks[prev_species] = []
+        blocks[prev_species].append((block_start, block_end))
+
+        return blocks
 
 
-def write_positions(positions: np.array,
-                    writer: TextIO,
-                    strain: str,
-                    chrm: str) -> None:
-    '''
-    Write the positions of the specific strain, chromosome as a line to the
-    provided textIO object
-    '''
-    writer.write(f'{strain}\t{chrm}\t' +
-                 '\t'.join([str(x) for x in positions]) + '\n')
+class HMM_Builder():
+    def __init__(self, configuration):
+        self.config = configuration
+        self.symbols = {
+            'match': '+',
+            'mismatch': '-',
+            'unknown': '?',
+            'unsequenced': 'n',
+            'gap': '-',
+            'unaligned': '?',
+            'masked': 'x'
+        }
+        config_symbols = get_nested(self.config, 'HMM_symbols')
+        if config_symbols is not None:
+            for k, v in config_symbols.items():
+                if k not in self.symbols:
+                    log.warning("Unused symbol in configuration: "
+                                f"{k} -> '{v}'")
+                else:
+                    self.symbols[k] = v
+                    log.debug(f"Overwriting default symbol for {k} with '{v}'")
+
+            for k, v in self.symbols.items():
+                if k not in config_symbols:
+                    log.warning(f'Symbol for {k} unset in config, '
+                                f"using default '{v}'")
+
+        else:
+            for k, v in self.symbols.items():
+                log.warning(f'Symbol for {k} unset in config, '
+                            f"using default '{v}'")
+
+        self.convergence = get_nested(self.config,
+                                      'analysis_params.convergence_threshold')
+        if self.convergence is None:
+            log.warning('No value set for convergence_threshold, using '
+                        'default of 0.001')
+            self.convergence = 0.001
+
+    def update_emission_symbols(self, repeats: int):
+        '''
+        Generate all permutations of match and mismatch symbols with
+        repeats number of characters, in lexigraphical order.
+        Sets internal state and returns the emission symbols
+        '''
+        syms = [self.symbols['match'], self.symbols['mismatch']]
+        emis_symbols = [''.join(x) for x in
+                        itertools.product(syms,
+                                          repeat=repeats)]
+        emis_symbols.sort()
+        self.emission_symbols = emis_symbols
+        return emis_symbols
+
+    def get_symbol_freqs(self, sequence: np.array) -> Tuple[Dict, List]:
+        '''
+        Calculate metrics from the provided, coded sequence
+        Returns:
+        the fraction of each matching pattern (e.g. +--++)
+        the weighted fraction of matches for each species
+        '''
+
+        weighted = []
+
+        symbols = defaultdict(int, Counter(sequence))
+        total = len(sequence)
+        for k in symbols:
+            symbols[k] /= total
+
+        sequence = np.array([list(s) for s in sequence])
+
+        # look along species
+        for s in np.transpose(sequence):
+            s = ''.join(s)
+            counts = Counter(s)
+            weighted.append(counts[self.symbols['match']])
+
+        total = sum(weighted)
+        weighted = [w / total for w in weighted]
+        return symbols, weighted
+
+    def set_expected_values(self):
+        '''
+        Get expected lengths and fractions for each state.
+        Assumes config has been validated by Predictor prior to running
+        '''
+        self.expected_lengths = {}
+        self.expected_fractions = {}
+        known_states = get_nested(self.config,
+                                  'analysis_params.known_states')
+        for state in known_states:
+            self.expected_lengths[state['name']] = state['expected_length']
+            self.expected_fractions[state['name']] = state['expected_fraction']
+
+        unknown_states = get_nested(self.config,
+                                    'analysis_params.unknown_states')
+        for state in unknown_states:
+            self.expected_lengths[state['name']] = state['expected_length']
+            self.expected_fractions[state['name']] = state['expected_fraction']
+
+        reference = get_nested(self.config,
+                               'analysis_params.reference')
+        # expected fraction of reference is the remainder after other states
+        # are specified
+        self.expected_fractions[reference['name']] =\
+            1 - sum(self.expected_fractions.values())
+
+        self.known_states, self.unknown_states = get_states(self.config)
+
+        self.ref_state = get_nested(self.config,
+                                    'analysis_params.reference.name')
+
+        # have to remove effect of unknown of these values for later
+        self.ref_fraction = self.expected_fractions[self.ref_state] + \
+            sum([self.expected_fractions[s] for s in self.unknown_states])
+        # sum of fraction / length, or 1 / tract length
+        self.other_sum = sum([self.expected_fractions[s['name']] /
+                              self.expected_lengths[s['name']]
+                              for s in known_states])
+
+    def update_expected_length(self, total_length: int):
+        '''
+        Updates the expected length for the reference state
+        based on the provided total_length of the sequence.
+        This is the expected length of a single tract, determined as the sum
+        of the total length (sequence length * fraction) divided by the number
+        of tracts (sequence length * 1 / other's tracts). The + 1 assumes that
+        the sequence will start and end with the reference.
+        '''
+        self.expected_lengths[self.ref_state] = (
+            total_length * self.ref_fraction /
+            (total_length * self.other_sum + 1))
+
+    def initial_probabilities(self,
+                              weighted_match_freqs: List[float]) -> np.array:
+        '''
+        Estimate the initial probability of being in each state
+        based on the number of states and their expected fractions
+        Returns the initial probability of each state
+        '''
+
+        init = []
+        expectation_weight = .9
+        for s, state in enumerate(self.known_states):
+            expected = self.expected_fractions[state]
+            estimated = weighted_match_freqs[s]
+            init.append(expected * expectation_weight +
+                        estimated * (1 - expectation_weight))
+
+        for state in self.unknown_states:
+            expected_frac = self.expected_fractions[state]
+            init.append(expected_frac)
+
+        return init / np.sum(init)
+
+    def emission_probabilities(self,
+                               symbols: List[str]) -> List[Dict]:
+        '''
+        Estimate initial emission probabilities
+        Return estimates as list of default dict of probabilities
+        '''
+
+        match = self.symbols['match']
+        mismatch = self.symbols['mismatch']
+        probabilities = {
+            mismatch + match: 0.9,
+            match + match: 0.09,
+            mismatch + mismatch: 0.009,
+            match + mismatch: 0.001,
+        }
+
+        mismatch_bias = .99
+
+        num_per_category = 2 ** (len(self.known_states) - 2)
+        for key in probabilities:
+            probabilities[key] *= num_per_category
+
+        # for known states
+        symbol_array = np.array([list(s) for s in symbols], dtype='<U1')
+        # for unknown states
+        symbol_length = symbol_array.shape[1]
+        number_matches = (symbol_array == match).sum(axis=1)
+        # combine first column with rest to generate probabilities
+        first_column = np.tile(symbol_array[:, 0:1],
+                               (1, len(self.known_states)))
+        symbol_array = np.core.defchararray.add(
+            first_column, symbol_array[:, 0:len(self.known_states)])
+        # index into probabilities and normalize
+        emissions = np.vectorize(probabilities.__getitem__)(symbol_array)
+        emissions /= sum(emissions)
+
+        # convert to match * (1-bias) + mismatch * bias, simplified
+        number_matches = (number_matches + mismatch_bias *
+                          (symbol_length - 2 * number_matches))
+        number_matches /= sum(number_matches)
+        # repeat for each unknown state
+        number_matches = np.transpose(
+            np.tile(number_matches, (len(self.unknown_states), 1)))
+
+        # convert result into default dict
+        result = [defaultdict(float,
+                              {k: v for k, v in
+                               zip(symbols, emissions[:, i])})
+                  for i in range(emissions.shape[1])]
+        result.extend([defaultdict(float,
+                                   {k: v for k, v in
+                                    zip(symbols, number_matches[:, i])})
+                       for i in range(number_matches.shape[1])])
+
+        return result
+
+    def transition_probabilities(self) -> np.array:
+        '''
+        Estimate initial transition probabilities
+        '''
+
+        # doesn't depend on sequence observations but maybe it should?
+
+        # also should we care about number of tracts rather than fraction
+        # of genome? maybe theoretically, but that number is a lot more
+        # suspect
+
+        states = self.known_states + self.unknown_states
+
+        fractions = np.array([self.expected_fractions[s] for s in states])
+        lengths = 1/np.array([self.expected_lengths[s] for s in states])
+
+        # general case,
+        # trans[i,j] = 1/ length[i] * expected[j] * 1 /(1 - fraction[i])
+        transitions = np.outer(
+            np.multiply(lengths, 1/(1-fractions)),
+            fractions)
+        # when i == j, trans[i,j] = 1 - 1/length[i]
+        np.fill_diagonal(transitions, 1-lengths)
+
+        # normalize
+        return transitions / transitions.sum(axis=1)[:, None]
+
+    def build_initial_hmm(self, seq: np.array) -> hmm_bw.HMM:
+        '''
+        Build a HMM object initialized based on expected values and sequence
+        '''
+
+        # get frequencies of individual symbols (e.g. '+') and all full
+        # combinations of symbols (e.g. '+++-')
+        (symbol_freqs,
+         weighted_match_freqs) = self.get_symbol_freqs(seq)
+
+        # new Hidden Markov Model
+        hmm = hmm_bw.HMM()
+
+        hmm.set_initial_p(self.initial_probabilities(weighted_match_freqs))
+        hmm.set_emissions(self.emission_probabilities(symbol_freqs.keys()))
+        hmm.set_transitions(self.transition_probabilities())
+        return hmm
+
+    def run_hmm(self,
+                alignment_file: str,
+                only_poly_sites: bool = True) -> Tuple[hmm_bw.HMM,
+                                                       hmm_bw.HMM,
+                                                       np.array]:
+        '''
+        Runs the hmm training, returning the initial and trained HMM along
+        with the positions of hmm importance
+        '''
+        coded_sequence, positions, len_seq = \
+            self.encode_sequence(alignment_file, only_poly_sites)
+
+        self.update_expected_length(len_seq)
+        # set initial hmm parameters based on combination of (1) initial
+        # expectations (length of introgressed tract and fraction of
+        # genome/total number tracts and bases) and (2) number of sites at
+        # which predict seq matches each reference
+        hmm = self.build_initial_hmm(coded_sequence)
+
+        # set states and initial probabilties
+        hmm.set_hidden_states(self.known_states + self.unknown_states)
+
+        # copy before setting observations to save memory
+        hmm_init = copy.deepcopy(hmm)
+
+        # set obs
+        hmm.set_observations([coded_sequence])
+
+        # Baum-Welch parameter estimation
+        hmm.train(self.convergence)
+
+        return hmm_init, hmm, positions
+
+    def encode_sequence(self,
+                        alignment_file: str,
+                        only_poly_sites: bool = True) -> Tuple[
+                            np.array,
+                            np.array,
+                            int]:
+        '''
+        open the supplied alignment file, encode, and return the coded
+        sequence along with the positions.  If only_poly_sites is True,
+        also filter out non-polymorphic sites.
+        Returns the encoded sequence, positions, and length of original seq
+        '''
+        _, sequences = read_fasta(alignment_file)
+
+        references = sequences[:-1]
+        predicted = sequences[-1]
+
+        seq_coded, positions = self.ungap_and_code(predicted, references)
+        if only_poly_sites:
+            seq_coded, positions = self.poly_sites(seq_coded, positions)
+
+        return seq_coded, positions, len(predicted)
+
+    def ungap_and_code(self,
+                       predict_seq: str,
+                       ref_seqs: List[str],
+                       index_ref: int = 0) -> Tuple[np.array, np.array]:
+        '''
+        Remove any sequence locations where a gap is present and code
+        into matching or mismatching sequence
+        Returns the coded sequences, by default an array of + where matching, -
+        where mismatching.  Also return the positions where the sequences are
+        not gapped.
+        '''
+        # index_ref is index of reference strain to index relative to
+        # build character array
+        sequences = np.array([list(predict_seq)] +
+                             [list(r) for r in ref_seqs])
+
+        isbase = sequences != self.symbols['gap']
+
+        # make boolean for valid characters
+        isvalid = np.logical_and(sequences != self.symbols['gap'],
+                                 sequences != self.symbols['unsequenced'])
+
+        # positions are where everything is valid, index where the reference is
+        # valid.  The +1 removes the predict sequence at index 0
+        positions = np.where(
+            np.all(isvalid[:, isbase[index_ref+1, :]], axis=0))[0]
+
+        matches = np.where(sequences[0] == sequences[1:],
+                           self.symbols['match'],
+                           self.symbols['mismatch'])
+
+        matches = np.fromiter((''.join(row)
+                               for row in np.transpose(
+                                   matches[:, np.all(isvalid, axis=0)])),
+                              dtype=f'U{len(sequences) - 1}')
+
+        return matches, positions
+
+    def poly_sites(self,
+                   sequences: np.array,
+                   positions: np.array) -> Tuple[np.array, np.array]:
+        '''
+        Remove all sequences where the sequence is all match_symbol
+        Returns the filtered sequence and position
+        '''
+        seq_len = len(sequences[0])
+        # check if seq only contains match_symbol
+        retain = np.vectorize(
+            lambda x: x.count(self.symbols['match']) != seq_len)(sequences)
+        indices = np.where(retain)[0]
+
+        ps_poly = positions[indices]
+        seq_poly = sequences[indices]
+
+        return seq_poly, ps_poly
 
 
 def read_positions(filename: str) -> Dict[str, Dict[str, List[int]]]:
@@ -699,7 +937,7 @@ def read_positions(filename: str) -> Dict[str, Dict[str, List[int]]]:
     keyed first by the strain, then chromosome.  Returned positions are
     lists of ints
     '''
-    with gzip.open(filename, 'rb') as reader:
+    with gzip.open(filename, 'rt') as reader:
         result = defaultdict({})
         for line in reader:
             line = line.split()
@@ -707,44 +945,6 @@ def read_positions(filename: str) -> Dict[str, Dict[str, List[int]]]:
             positions = [int(x) for x in line[2:]]
             result[strain][chrm] = positions
     return result
-
-
-def write_blocks_header(writer: TextIO) -> None:
-    '''
-    Write header line to tab delimited block file:
-    strain chromosome predicted_species start end num_sites_hmm
-    '''
-    # NOTE: num_sites_hmm represents the sites considered by the HMM,
-    # so it might exclude non-polymorphic sites in addition to gaps
-    writer.write('\t'.join(['strain',
-                            'chromosome',
-                            'predicted_species',
-                            'start',
-                            'end',
-                            'num_sites_hmm'])
-                 + '\n')
-
-
-def write_blocks(state_seq_blocks: List[Tuple[int, int]],
-                 positions: np.array,
-                 writer: TextIO,
-                 strain: str,
-                 chrm: str,
-                 species_pred: str) -> None:
-    '''
-    Write entry into tab delimited block file, with columns:
-    strain chromosome predicted_species start end num_sites_hmm
-    '''
-    writer.write('\n'.join(
-        ['\t'.join([strain,
-                    chrm,
-                    species_pred,
-                    str(positions[start]),
-                    str(positions[end]),
-                    str(end - start + 1)])
-         for start, end in state_seq_blocks]))
-    if state_seq_blocks:  # ensure ends with \n
-        writer.write('\n')
 
 
 def read_blocks(filename: str,
@@ -771,64 +971,3 @@ def read_blocks(filename: str,
                 item = (int(start), int(end), int(number_non_gap))
             result[strain][chrm].append(item)
     return result
-
-
-def get_emis_symbols(known_states: List[str]) -> List[str]:
-    '''
-    Generate all permutations of match and mismatch symbols with
-    len(known_states) characters, in lexigraphical order
-    '''
-    symbols = [gp.match_symbol, gp.mismatch_symbol]
-    emis_symbols = [''.join(x) for x in
-                    itertools.product(symbols, repeat=len(known_states))]
-    emis_symbols.sort()
-    return emis_symbols
-
-
-
-
-def write_hmm(hmm: hmm_bw.HMM,
-              writer: TextIO,
-              strain: str,
-              chrm: str,
-              emis_symbols: List[str]):
-    '''
-    Write information on the provided hmm as a line to the supplied textIO
-    object.
-    Output is tab delimited with:
-    strain chromosome initial_probs emissions transitions
-    '''
-    writer.write(f'{strain}\t{chrm}\t')
-
-    states = len(hmm.hidden_states)
-    writer.write('\t'.join(
-        [f'{p}' for p in hmm.initial_p] +  # initial
-        [f'{hmm.emissions[i, hmm.symbol_to_ind[symbol]]}'
-         if symbol in hmm.symbol_to_ind else '0.0'
-         for i in range(states)
-         for symbol in emis_symbols] +  # emission
-        [f'{hmm.transitions[i, j]}'
-         for i in range(states)
-         for j in range(states)]  # transition
-    ))
-    writer.write('\n')
-
-
-def write_state_probs(probs: Dict[str, List[float]],
-                      writer: TextIO,
-                      strain: str,
-                      chrm: str,
-                      states: List[str]) -> None:
-    '''
-    Write the probability each state to the supplied textIO object
-    Output is tab delimited with:
-    strain chrom state1:prob1,prob2,...,probn state2...
-    '''
-    writer.write(f'{strain}\t{chrm}\t')
-
-    writer.write('\t'.join(
-        [f'{state}:' +
-         ','.join([f'{site[i]:.5f}' for site in probs])
-         for i, state in enumerate(states)]))
-
-    writer.write('\n')

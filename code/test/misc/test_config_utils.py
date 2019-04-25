@@ -141,6 +141,7 @@ def test_get_nested():
     assert get_nested({'a': {'b': 2}}, 'a.b') == 2
     assert get_nested({'a': {'b': 2}}, 'a.c') is None
     assert get_nested({'a': {'b': {'c': 3}}}, 'a.b.c') == 3
+    assert get_nested(None, 'key') is None
 
 
 def test_check_wildcards(mocker):

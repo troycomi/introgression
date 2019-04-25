@@ -7,7 +7,7 @@ def read_fasta(fn: str, gz: bool = False) -> Tuple[
         List[str], np.array]:
     '''
     Read the provided fasta file, returning the
-    headers (lines startin with >) and sequences
+    headers (lines starting with >) and sequences
     '''
 
     headers = []

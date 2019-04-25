@@ -34,3 +34,4 @@ code/setup/*
 .coverage
 *.swp
 *egg-info
+tags

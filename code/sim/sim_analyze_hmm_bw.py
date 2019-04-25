@@ -380,11 +380,10 @@ def get_symbol_freqs_one(states, seqs, unknown_species, \
     
     return individual_symbol_freqs, symbol_freqs, weighted_match_freqs
 
+
 def convert_predictions(path, states):
-    new_path = []
-    for p in path:
-        new_path.append(states[p])
-    return new_path
+    return [states[p] for p in path]
+
 
 def initial_hmm_parameters(seqs, predict_species, index_to_species, states, \
                                unknown_species, \

@@ -1,12 +1,8 @@
 import click
 import yaml
-import glob
-import re
 import logging as log
 from misc import config_utils
-from misc.config_utils import (get_nested, check_wildcards, get_states,
-                               validate)
-from typing import List, Dict
+import analyze.predict
 
 
 # TODO also check for snakemake object?
@@ -15,27 +11,30 @@ from typing import List, Dict
               multiple=True,
               type=click.File('r'),
               help='Base configuration yaml.')
-@click.option('-v', '--verbosity', count=True, default=2)
+@click.option('-v', '--verbosity', count=True, default=3)
 @click.pass_context
 def cli(ctx, config, verbosity):
     '''
     Main entry script to run analyze methods
     '''
 
+    verbosity -= 1
     verbosity = 4 if verbosity > 4 else verbosity
-    levelstr = ['CRITICAL', 'ERROR',
-                'WARNING', 'INFO',
-                'DEBUG'][verbosity]
-    level = [log.CRITICAL, log.ERROR,
-             log.WARNING, log.INFO,
-             log.DEBUG][verbosity]
+    levelstr, level = [
+        ('CRITICAL', log.CRITICAL),
+        ('ERROR', log.ERROR),
+        ('WARNING', log.WARNING),
+        ('INFO', log.INFO),
+        ('DEBUG', log.DEBUG),
+    ][verbosity]
 
     log.basicConfig(level=level)
     log.info(f'Verbosity set to {levelstr}')
 
     ctx.ensure_object(dict)
 
-    log.info(f'Reading in {len(config)} config files')
+    confs = len(config)
+    log.info(f'Reading in {confs} config file{"" if confs == 1 else "s"}')
     for path in config:
         conf = yaml.safe_load(path)
         ctx.obj = config_utils.merge_dicts(ctx.obj, conf)
@@ -66,9 +65,14 @@ def cli(ctx, config, verbosity):
               help='Positions file, gzipped')
 @click.option('--probabilities', default='',
               help='Probabilities file, gzipped')
+@click.option('--threshold', default='',
+              help='Threshold to apply to estimated path. Valid values are '
+              'floats or `viterbi\'')
 @click.option('--alignment', default='',
               help='Alignment file location with '
               '{prefix}, {strain}, and {chrom}')
+@click.option('--only-poly-sites/--all-sites', default=True,
+              help='Consider only polymorphic sites or all sites')
 def predict(ctx,
             blocks,
             prefix,
@@ -77,32 +81,46 @@ def predict(ctx,
             hmm_trained,
             positions,
             probabilities,
-            alignment):
+            threshold,
+            alignment,
+            only_poly_sites):
     config = ctx.obj
 
-    predictor = predict.Predictor(config)
+    predictor = analyze.predict.Predictor(config)
     predictor.set_chromosomes()
+    log.info(f'Found {len(predictor.chromosomes)} chromosomes in config')
+
+    predictor.set_threshold(threshold)
+    log.info(f'Threshold value is \'{predictor.threshold}\'')
 
     predictor.set_blocks_file(blocks)
-    log.info(f'output blocks file for predict is {predictor.blocks}')
+    log.info(f'Output blocks file is \'{predictor.blocks}\'')
 
     predictor.set_prefix(prefix)
-    log.info(f'prefix is {predictor.prefix}')
+    log.info(f'Prefix is \'{predictor.prefix}\'')
 
     predictor.set_strains(test_strains)
-    log.info(f'found {len(predictor.test_strains)} test strains')
-    log.info(f'found {len(predictor.strains)} unique strains')
+    if predictor.test_strains is None:
+        log.info(f'No test_strains provided')
+    else:
+        str_len = len(predictor.test_strains)
+        log.info(f'Found {str_len} test strain'
+                 f'{"" if str_len == 1 else "s"}')
+    log.info(f'Found {len(predictor.strains)} unique strains')
 
     predictor.set_output_files(hmm_initial,
                                hmm_trained,
                                positions,
                                probabilities,
                                alignment)
-    log.info(f'hmm_initial is {predictor.hmm_initial}')
-    log.info(f'hmm_trained is {predictor.hmm_trained}')
-    log.info(f'positions is {positions}')
-    log.info(f'probabilities is {predictor.probabilities}')
-    log.info(f'alignment is {predictor.alignment}')
+    log.info(f'Hmm_initial file is \'{predictor.hmm_initial}\'')
+    log.info(f'Hmm_trained file is \'{predictor.hmm_trained}\'')
+    log.info(f'Positions file is \'{predictor.positions}\'')
+    log.info(f'Probabilities file is \'{predictor.probabilities}\'')
+    log.info(f'Alignment file is \'{predictor.alignment}\'')
 
-    predictor.validate_arguments()
-    predictor.run_prediction()
+    predictor.run_prediction(only_poly_sites)
+
+
+if __name__ == '__main__':
+    cli()

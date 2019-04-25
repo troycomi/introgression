@@ -75,7 +75,8 @@ chromosomes: ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII',
 
 analysis_params:
     tag: p2e4
-    improvement_frac: 0.001
+    convergence_threshold: 0.001
+    # threshold can be 'viterbi' or a float to threshold probabilities
     threshold: viterbi
     input_root: /tigress/AKEY/akey_vol2/aclark4/nobackup
 
@@ -89,20 +90,30 @@ analysis_params:
         - name: CBS432
           base_dir: /tigress/anneec/projects/introgression/data/CBS432/
           gene_bank_dir: __INPUT_ROOT__/CBS432/
+          expected_length: 10000
+          expected_fraction: 0.025
 
         - name: N_45
           base_dir: __INPUT_ROOT__/para_sgrp/strains/N_45/
           gene_bank_dir: null
+          expected_length: 10000
+          expected_fraction: 0.025
 
         - name: DBVPG6304
           base_dir: __INPUT_ROOT__/para_sgrp/strains/DBVPG6304/
           gene_bank_dir: null
+          expected_length: 10000
+          expected_fraction: 0.025
 
         - name: UWOPS91_917_1
           base_dir: __INPUT_ROOT__/para_sgrp/strains/UWOPS91_917_1/
           gene_bank_dir: null
+          expected_length: 10000
+          expected_fraction: 0.025
 
     unknown_states:
         - name: unknown
+          expected_length: 1000
+          expected_fraction: 0.01
 
     gene_bank_all: __INPUT_ROOT__/100_genomes/sequence.gb
