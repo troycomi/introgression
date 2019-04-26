@@ -40,7 +40,7 @@ def test_chroms(runner, mocker):
         assert str(result.exception) == 'No threshold provided'
         assert mock_log.call_args_list == [
             mocker.call('Verbosity set to WARNING'),
-            mocker.call('Reading in 1 config file'),
+            mocker.call('Read in 1 config file'),
             mocker.call('Found 3 chromosomes in config')
         ]
 
@@ -65,7 +65,7 @@ def test_threshold(runner, mocker):
         assert str(result.exception) == 'No block file provided'
         assert mock_log.call_args_list == [
             mocker.call('Verbosity set to WARNING'),
-            mocker.call('Reading in 1 config file'),
+            mocker.call('Read in 1 config file'),
             mocker.call('Found 3 chromosomes in config'),
             mocker.call("Threshold value is 'viterbi'")
         ]
@@ -95,7 +95,7 @@ def test_block(runner, mocker):
             'Unable to build prefix, no known states provided'
         assert mock_log.call_args_list == [
             mocker.call('Verbosity set to WARNING'),
-            mocker.call('Reading in 1 config file'),
+            mocker.call('Read in 1 config file'),
             mocker.call('Found 3 chromosomes in config'),
             mocker.call("Threshold value is 'viterbi'"),
             mocker.call("Output blocks file is 'blocks_{state}.txt'"),
@@ -129,7 +129,7 @@ def test_prefix(runner, mocker):
             'Unable to find strains in config and no test_strains provided'
         assert mock_log.call_args_list == [
             mocker.call('Verbosity set to WARNING'),
-            mocker.call('Reading in 1 config file'),
+            mocker.call('Read in 1 config file'),
             mocker.call('Found 3 chromosomes in config'),
             mocker.call("Threshold value is 'viterbi'"),
             mocker.call("Output blocks file is 'blocks_{state}.txt'"),
@@ -165,7 +165,7 @@ def test_strains(runner, mocker):
             'No initial hmm file provided'
         assert mock_log.call_args_list == [
             mocker.call('Verbosity set to WARNING'),
-            mocker.call('Reading in 1 config file'),
+            mocker.call('Read in 1 config file'),
             mocker.call('Found 3 chromosomes in config'),
             mocker.call("Threshold value is 'viterbi'"),
             mocker.call("Output blocks file is 'blocks_{state}.txt'"),
@@ -212,7 +212,7 @@ def test_test_strains(runner, mocker):
 
         assert mock_log.call_args_list == [
             mocker.call('Verbosity set to WARNING'),
-            mocker.call('Reading in 1 config file'),
+            mocker.call('Read in 1 config file'),
             mocker.call('Found 3 chromosomes in config'),
             mocker.call("Threshold value is 'viterbi'"),
             mocker.call("Output blocks file is 'blocks_{state}.txt'"),
@@ -227,7 +227,7 @@ def test_outputs(runner, mocker):
     mock_log = mocker.patch('analyze.main.log.info')
     mock_calls = [
         mocker.call('Verbosity set to WARNING'),
-        mocker.call('Reading in 1 config file'),
+        mocker.call('Read in 1 config file'),
         mocker.call('Found 3 chromosomes in config'),
         mocker.call("Threshold value is 'viterbi'"),
         mocker.call("Output blocks file is 'blocks_{state}.txt'"),

@@ -4,6 +4,7 @@ import glob
 import re
 import os
 import itertools
+import click
 from collections import defaultdict, Counter
 from hmm import hmm_bw
 from sim import sim_predict
@@ -365,9 +366,21 @@ class Predictor():
             for writer in block_writers.values():
                 self.write_blocks_header(writer)
 
+            counter = 0
+            total = len(self.chromosomes) * len(self.strains)
+            # logging to file
+            progress_bar = None
+            if get_nested(self.config, 'paths.log_file'):
+                progress_bar = stack.enter_context(
+                    click.progressbar(
+                        length=total,
+                        label='Running prediction'))
+
             for chrom in self.chromosomes:
                 for strain in self.strains:
-                    log.info(f'working on: {strain} {chrom}')
+                    counter += 1
+                    log.info(f'working on: {strain} {chrom} '
+                             f'({counter} of {total})')
 
                     # get sequences and encode
                     alignment_file = self.alignment.format(
@@ -398,6 +411,9 @@ class Predictor():
                                           state)
 
                     self.write_state_probs(probs, probabilities, strain, chrom)
+
+                    if progress_bar:
+                        progress_bar.update(1)
 
     def write_hmm_header(self, writer: TextIO) -> None:
         '''

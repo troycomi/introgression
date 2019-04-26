@@ -41,7 +41,7 @@ def test_main_cli_configs(runner, mocker):
         mock_log_lvl.assert_called_once_with(level=log.WARNING)
         assert mock_log_info.call_args_list == [
             mocker.call('Verbosity set to WARNING'),
-            mocker.call('Reading in 2 config files')
+            mocker.call('Read in 2 config files')
         ]
         assert mock_log_debug.call_args_list == [
             mocker.call('Cleaned config:\ntest - 23\ntest2 - 34\n')
@@ -59,7 +59,7 @@ def test_main_cli_verbosity(runner, mocker):
     mock_log_lvl.assert_called_once_with(level=log.CRITICAL)
     assert mock_log_info.call_args_list == [
         mocker.call('Verbosity set to CRITICAL'),
-        mocker.call('Reading in 0 config files')
+        mocker.call('Read in 0 config files')
     ]
 
     mock_log_info.reset_mock()
@@ -71,7 +71,7 @@ def test_main_cli_verbosity(runner, mocker):
     mock_log_lvl.assert_called_once_with(level=log.ERROR)
     assert mock_log_info.call_args_list == [
         mocker.call('Verbosity set to ERROR'),
-        mocker.call('Reading in 0 config files')
+        mocker.call('Read in 0 config files')
     ]
 
     mock_log_info.reset_mock()
@@ -83,7 +83,7 @@ def test_main_cli_verbosity(runner, mocker):
     mock_log_lvl.assert_called_once_with(level=log.WARNING)
     assert mock_log_info.call_args_list == [
         mocker.call('Verbosity set to WARNING'),
-        mocker.call('Reading in 0 config files')
+        mocker.call('Read in 0 config files')
     ]
 
     mock_log_info.reset_mock()
@@ -95,7 +95,7 @@ def test_main_cli_verbosity(runner, mocker):
     mock_log_lvl.assert_called_once_with(level=log.INFO)
     assert mock_log_info.call_args_list == [
         mocker.call('Verbosity set to INFO'),
-        mocker.call('Reading in 0 config files')
+        mocker.call('Read in 0 config files')
     ]
 
     mock_log_info.reset_mock()
@@ -107,7 +107,7 @@ def test_main_cli_verbosity(runner, mocker):
     mock_log_lvl.assert_called_once_with(level=log.DEBUG)
     assert mock_log_info.call_args_list == [
         mocker.call('Verbosity set to DEBUG'),
-        mocker.call('Reading in 0 config files')
+        mocker.call('Read in 0 config files')
     ]
 
     mock_log_info.reset_mock()
@@ -119,5 +119,5 @@ def test_main_cli_verbosity(runner, mocker):
     mock_log_lvl.assert_called_once_with(level=log.DEBUG)
     assert mock_log_info.call_args_list == [
         mocker.call('Verbosity set to DEBUG'),
-        mocker.call('Reading in 0 config files')
+        mocker.call('Read in 0 config files')
     ]

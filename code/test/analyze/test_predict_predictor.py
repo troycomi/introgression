@@ -783,10 +783,10 @@ def test_run_prediction_full(predictor, mocker):
     ])
 
     mock_log.info.assert_has_calls([
-        mocker.call('working on: s1 I'),
-        mocker.call('working on: s2 I'),
-        mocker.call('working on: s1 II'),
-        mocker.call('working on: s2 II')
+        mocker.call('working on: s1 I (1 of 4)'),
+        mocker.call('working on: s2 I (2 of 4)'),
+        mocker.call('working on: s1 II (3 of 4)'),
+        mocker.call('working on: s2 II (4 of 4)')
     ])
 
 

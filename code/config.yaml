@@ -20,6 +20,8 @@ output_root: /tigress/tcomi/aclark4_temp/results
 input_root: /tigress/AKEY/akey_vol2/aclark4/nobackup
 
 paths:
+    # optional log file
+    # log_file: introgression.log
     fasta_suffix: .fa  # suffix for _all_ fasta files
     # suffix for _all_ alignment files
     # this needs to match the suffix output by mugsy
@@ -44,9 +46,10 @@ paths:
         block_files: __ANALYSIS_BASE__/blocks_{state}.txt
         hmm_initial: __ANALYSIS_BASE__/hmm_initial.txt
         hmm_trained: __ANALYSIS_BASE__/hmm_trained.txt
-        positions: __ANALYSIS_BASE__/positions.txt.gz
         probabilities: __ANALYSIS_BASE__/probabilities.txt.gz
         alignment: __ALIGNMENTS__/{prefix}_{strain}_chr{chrom}_mafft.maf
+        # positions are optional
+        positions: __ANALYSIS_BASE__/positions.txt.gz
 
     # software install locations
     software:

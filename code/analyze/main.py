@@ -12,8 +12,11 @@ import analyze.predict
               type=click.File('r'),
               help='Base configuration yaml.')
 @click.option('-v', '--verbosity', count=True, default=3)
+@click.option('--log-file',
+              default='',
+              help='Optional log file. If unset print to stdout.')
 @click.pass_context
-def cli(ctx, config, verbosity):
+def cli(ctx, config, verbosity, log_file):
     '''
     Main entry script to run analyze methods
     '''
@@ -28,18 +31,28 @@ def cli(ctx, config, verbosity):
         ('DEBUG', log.DEBUG),
     ][verbosity]
 
-    log.basicConfig(level=level)
-    log.info(f'Verbosity set to {levelstr}')
-
     ctx.ensure_object(dict)
 
     confs = len(config)
-    log.info(f'Reading in {confs} config file{"" if confs == 1 else "s"}')
     for path in config:
         conf = yaml.safe_load(path)
         ctx.obj = config_utils.merge_dicts(ctx.obj, conf)
 
     ctx.obj = config_utils.clean_config(ctx.obj)
+
+    if log_file == '':
+        log_file = config_utils.get_nested(ctx.obj, 'paths.log_file')
+
+    if config_utils.get_nested(ctx.obj, 'paths'):
+        ctx.obj['paths']['log_file'] = log_file
+
+    if log_file is not None:
+        log.basicConfig(level=level, filename=log_file, filemode='w')
+    else:
+        log.basicConfig(level=level)
+    log.info(f'Verbosity set to {levelstr}')
+
+    log.info(f'Read in {confs} config file{"" if confs == 1 else "s"}')
     log.debug('Cleaned config:\n' + config_utils.print_dict(ctx.obj))
 
     if ctx.invoked_subcommand is None:
