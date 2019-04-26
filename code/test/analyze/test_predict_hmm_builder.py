@@ -2,7 +2,6 @@ from analyze import predict
 from hmm import hmm_bw as hmm
 import pytest
 from pytest import approx
-from io import StringIO
 from collections import defaultdict
 import random
 import numpy as np
@@ -12,7 +11,7 @@ import numpy as np
 def default_builder():
     builder = predict.HMM_Builder({
         'analysis_params':
-        {'reference': {'name': 'S228c'},
+        {'reference': {'name': 'S288c'},
          'known_states': [
              {'name': 'CBS432',
               'expected_length': 10000,
@@ -156,7 +155,7 @@ def symbol_test_helper(sequence, builder):
 def test_set_expected_values(builder):
     builder.config = {
         'analysis_params':
-        {'reference': {'name': 'S228c'},
+        {'reference': {'name': 'S288c'},
          'known_states': [
              {'name': 'CBS432',
               'expected_length': 10,
@@ -186,7 +185,7 @@ def test_set_expected_values(builder):
         'unknown': 10}
 
     assert builder.expected_fractions == {
-        'S228c': 0.95,
+        'S288c': 0.95,
         'CBS432': 0.01,
         'N_45': 0.01,
         'DBVPG6304': 0.01,
@@ -194,13 +193,13 @@ def test_set_expected_values(builder):
         'unknown': 0.01}
     assert builder.ref_fraction == 0.96
     assert builder.other_sum == 0.004
-    assert builder.ref_state == 'S228c'
+    assert builder.ref_state == 'S288c'
 
 
 def test_update_expected_length(builder):
     builder.config = {
         'analysis_params':
-        {'reference': {'name': 'S228c'},
+        {'reference': {'name': 'S288c'},
          'known_states': [
              {'name': 'CBS432',
               'expected_length': 10000,
@@ -231,7 +230,7 @@ def test_update_expected_length(builder):
         'unknown': 1000}
 
     assert builder.expected_fractions == {
-        'S228c': 0.89,
+        'S288c': 0.89,
         'CBS432': 0.025,
         'N_45': 0.025,
         'DBVPG6304': 0.025,
@@ -240,10 +239,10 @@ def test_update_expected_length(builder):
 
     assert builder.ref_fraction == 0.9
     assert builder.other_sum == 1e-5
-    assert builder.ref_state == 'S228c'
+    assert builder.ref_state == 'S288c'
 
     builder.update_expected_length(1e5)
-    assert builder.expected_lengths['S228c'] == 45000
+    assert builder.expected_lengths['S288c'] == 45000
 
 
 def test_initial_probabilities(default_builder):
@@ -256,7 +255,7 @@ def test_initial_probabilities(default_builder):
          'unknown': 0.01,
          'CBS432': 0.025,
          'N_45': 0.025,
-         'S228c': 0.89})
+         'S288c': 0.89})
 
     p = [0.1 + (0.89 - 0.1) * 0.9,
          0.2 + (0.025 - 0.2) * 0.9,
@@ -385,7 +384,7 @@ def test_build_initial_hmm(default_builder):
          'unknown': 0.01,
          'CBS432': 0.025,
          'N_45': 0.025,
-         'S228c': 0.89})
+         'S288c': 0.89})
 
     p = [0.2 + (0.89 - 0.2) * 0.9,
          0.2 + (0.025 - 0.2) * 0.9,

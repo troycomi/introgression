@@ -2,6 +2,7 @@ import copy
 import gzip
 import glob
 import re
+import os
 import itertools
 from collections import defaultdict, Counter
 from hmm import hmm_bw
@@ -191,7 +192,6 @@ class Predictor():
                 log.info(f'searching for {strain_glob}')
                 for fname in glob.iglob(strain_glob):
                     # extract wildcard matches
-                    print(fname)
                     match = re.match(
                         test_strain.format(
                             strain='(?P<strain>.*?)',
@@ -203,8 +203,8 @@ class Predictor():
                             f'matched with {match.group("strain", "chrom")}')
                         strain, chrom = match.group('strain', 'chrom')
                         if strain not in strains:
-                            strains[strain] = []
-                        strains[strain].append(chrom)
+                            strains[strain] = set()
+                        strains[strain].add(chrom)
 
             if len(strains) == 0:
                 err = ('Found no chromosome sequence files '
@@ -212,11 +212,13 @@ class Predictor():
                 log.exception(err)
                 raise ValueError(err)
 
+            # check if requested chromosomes are within the list of chroms
+            chrom_set = set(self.chromosomes)
             for strain, chroms in strains.items():
-                if len(self.chromosomes) != len(chroms):
-                    err = (f'Strain {strain} has incorrect number of '
-                           f'chromosomes. Expected {len(self.chromosomes)} '
-                           f'found {len(chroms)}')
+                if not chrom_set.issubset(chroms):
+                    not_found = chrom_set.difference(chroms).pop()
+                    err = (f'Strain {strain} is missing chromosomes. '
+                           f'Unable to find chromosome \'{not_found}\'')
                     log.exception(err)
                     raise ValueError(err)
 
@@ -371,6 +373,9 @@ class Predictor():
                     alignment_file = self.alignment.format(
                         strain=strain, chrom=chrom)
 
+                    if not os.path.exists(alignment_file):
+                        log.info(f'skipping, file {alignment_file} not found')
+                        continue
                     hmm_initial, hmm_trained, pos = hmm_builder.run_hmm(
                         alignment_file, only_poly_sites)
 

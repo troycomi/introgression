@@ -38,7 +38,7 @@ paths:
         suffix: .txt
 
     analysis:
-        analysis_base: __OUTPUT_ROOT__/analysis
+        analysis_base: __OUTPUT_ROOT__/analysis_chr1_test
         regions: __ANALYSIS_BASE__/regions/
         genes: __ANALYSIS_BASE__/genes/
         block_files: __ANALYSIS_BASE__/blocks_{state}.txt
@@ -63,8 +63,9 @@ paths:
         ldselect: __ROOT_INSTALL__/ldSelect/
         structure: __ROOT_INSTALL__/structure/
 
-chromosomes: ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII',
-              'IX', 'X', 'XI', 'XII', 'XIII', 'XIV', 'XV', 'XVI']
+chromosomes: ['I']
+# chromosomes: ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII',
+#               'IX', 'X', 'XI', 'XII', 'XIII', 'XIV', 'XV', 'XVI']
 
 # can optionally list all strains to consider
 # if blank will glob with TEST_STRAINS paths
@@ -82,7 +83,7 @@ analysis_params:
 
     # master known state, prepeded to list of known states
     reference:
-        name: S228c
+        name: S288c
         base_dir: __INPUT_ROOT__/100_genomes/genomes/S288c_SGD-R64/
         gene_bank_dir: __INPUT_ROOT__/S288c/
 

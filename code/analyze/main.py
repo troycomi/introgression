@@ -72,7 +72,8 @@ def cli(ctx, config, verbosity):
               help='Alignment file location with '
               '{prefix}, {strain}, and {chrom}')
 @click.option('--only-poly-sites/--all-sites', default=True,
-              help='Consider only polymorphic sites or all sites')
+              help='Consider only polymorphic sites or all sites. '
+              'Default is only polymorphic.')
 def predict(ctx,
             blocks,
             prefix,

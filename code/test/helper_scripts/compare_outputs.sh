@@ -1,13 +1,13 @@
 #! /bin/bash
 
-actual=/tigress/tcomi/aclark4_temp/results/analysis_test/
-expected=/tigress/tcomi/aclark4_temp/results/analysisp4e2/
+actual=/tigress/tcomi/aclark4_temp/results/analysis_chr1_test/
+expected=/tigress/tcomi/aclark4_temp/results/analysis_chr1/
 echo starting comarison of $(basename $actual) to $(basename $expected)
 
 module load anaconda3
 
 for file in $(ls $expected); do
-    act=$(echo $file | sed 's/\(.*\)p4e2\(\.txt.*\)/\1_test\2/')
+    act=$(echo $file | sed 's/__chr1//')
     if [[ $file = hmm* ]]; then
         cmp <(cat $actual$act | python hmm_format.py) \
             <(cat $expected$file | python hmm_format.py) \

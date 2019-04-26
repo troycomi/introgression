@@ -283,3 +283,18 @@ def test_outputs(runner, mocker):
             mocker.call("Probabilities file is 'probs.txt.gz'"),
             mocker.call("Alignment file is 's1_s2_{strain}_chr{chrom}.maf'")]
         mock_predict.called_once_with(True)
+
+        mock_predict.reset_mock()
+        result = runner.invoke(
+            main.cli,
+            '--config config.yaml predict --threshold viterbi '
+            '--blocks blocks_{state}.txt --prefix s1_s2 '
+            '--hmm-initial hmm_init.txt '
+            '--hmm-trained hmm_trained.txt '
+            '--probabilities probs.txt.gz '
+            '--positions pos.txt.gz '
+            '--alignment {prefix}_{strain}_chr{chrom}.maf '
+            '--all-sites'
+        )
+
+        mock_predict.called_once_with(False)

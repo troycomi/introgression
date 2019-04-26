@@ -1,7 +1,6 @@
 from analyze import predict
 from hmm import hmm_bw as hmm
 import pytest
-from pytest import approx
 from io import StringIO
 from collections import defaultdict
 import random
@@ -13,7 +12,7 @@ def predictor():
     result = predict.Predictor(
         configuration={
             'analysis_params':
-            {'reference': {'name': 'S228c'},
+            {'reference': {'name': 'S288c'},
              'known_states': [
                  {'name': 'CBS432'},
                  {'name': 'N_45'},
@@ -29,7 +28,7 @@ def predictor():
 
 def test_predictor(predictor):
     assert predictor.known_states ==\
-        'S228c CBS432 N_45 DBVPG6304 UWOPS91_917_1'.split()
+        'S288c CBS432 N_45 DBVPG6304 UWOPS91_917_1'.split()
     assert predictor.unknown_states == ['unknown']
 
 
@@ -145,23 +144,23 @@ def test_find_strains(predictor, mocker):
     # too many chroms for s1
     mock_glob = mocker.patch('analyze.predict.glob.iglob',
                              side_effect=[[
-                                 'test_prefix_s1_c1.fa',
-                                 'test_prefix_s2_c1.fa',
-                                 'test_prefix_s1_c2.fa',
+                                 'test_prefix_s1_cII.fa',
+                                 'test_prefix_s2_cII.fa',
+                                 'test_prefix_s1_cIII.fa',
                                  'test_prefix.fa',
                              ]])
     mock_log = mocker.patch('analyze.predict.log')
     with pytest.raises(ValueError) as e:
-        predictor.find_strains(['test_prefix_{strain}_{chrom}.fa'])
+        predictor.find_strains(['test_prefix_{strain}_c{chrom}.fa'])
 
-    assert 'Strain s1 has incorrect number of chromosomes. Expected 1 found 2'\
+    assert "Strain s1 is missing chromosomes. Unable to find chromosome 'I'"\
         in str(e)
-    mock_glob.assert_called_with('test_prefix_*_*.fa')
-    mock_log.info.assert_called_with('searching for test_prefix_*_*.fa')
+    mock_glob.assert_called_with('test_prefix_*_c*.fa')
+    mock_log.info.assert_called_with('searching for test_prefix_*_c*.fa')
     assert mock_log.debug.call_args_list == \
-        [mocker.call("matched with ('s1', 'c1')"),
-         mocker.call("matched with ('s2', 'c1')"),
-         mocker.call("matched with ('s1', 'c2')"),
+        [mocker.call("matched with ('s1', 'II')"),
+         mocker.call("matched with ('s2', 'II')"),
+         mocker.call("matched with ('s1', 'III')"),
          ]
 
     # no matches
@@ -178,29 +177,31 @@ def test_find_strains(predictor, mocker):
     mock_log.info.assert_called_with('searching for test_prefix_*_*.fa')
     assert mock_log.debug.call_args_list == []
 
-    # correct, with second test_strains
+    # correct, with second test_strains, extra chromosomes
     mock_glob = mocker.patch('analyze.predict.glob.iglob',
                              side_effect=[
                                  [
-                                     'test_prefix_s1_c1.fa',
-                                     'test_prefix_s2_c1.fa',
+                                     'test_prefix_s1_cI.fa',
+                                     'test_prefix_s2_cI.fa',
+                                     'test_prefix_s2_cII.fa',
                                      'test_prefix.fa',
                                  ],
-                                 ['test_prefix_c2_s3.fa']
+                                 ['test_prefix_cI_s3.fa']
                              ])
     mock_log = mocker.patch('analyze.predict.log')
-    predictor.find_strains(['test_prefix_{strain}_{chrom}.fa',
-                            'test_prefix_{chrom}_{strain}.fa'])
+    predictor.find_strains(['test_prefix_{strain}_c{chrom}.fa',
+                            'test_prefix_c{chrom}_{strain}.fa'])
     assert mock_glob.call_args_list == \
-        [mocker.call('test_prefix_*_*.fa'),
-         mocker.call('test_prefix_*_*.fa')]
+        [mocker.call('test_prefix_*_c*.fa'),
+         mocker.call('test_prefix_c*_*.fa')]
     assert mock_log.info.call_args_list ==\
-        [mocker.call('searching for test_prefix_*_*.fa'),
-         mocker.call('searching for test_prefix_*_*.fa')]
+        [mocker.call('searching for test_prefix_*_c*.fa'),
+         mocker.call('searching for test_prefix_c*_*.fa')]
     assert mock_log.debug.call_args_list == \
-        [mocker.call("matched with ('s1', 'c1')"),
-         mocker.call("matched with ('s2', 'c1')"),
-         mocker.call("matched with ('s3', 'c2')"),
+        [mocker.call("matched with ('s1', 'I')"),
+         mocker.call("matched with ('s2', 'I')"),
+         mocker.call("matched with ('s2', 'II')"),
+         mocker.call("matched with ('s3', 'I')"),
          ]
     assert predictor.strains == ['s1', 's2', 's3']
 
@@ -315,7 +316,7 @@ def test_validate_arguments(predictor):
     predictor.threshold = 1
     predictor.config = {
         'analysis_params':
-        {'reference': {'name': 'S228c'},
+        {'reference': {'name': 'S288c'},
          'known_states': [
              {'name': 'CBS432',
               'expected_length': 1,
@@ -363,7 +364,7 @@ def test_validate_arguments(predictor):
 
     predictor.config = {
         'analysis_params':
-        {'reference': {'name': 'S228c'},
+        {'reference': {'name': 'S288c'},
          'unknown_states': [{'name': 'unknown',
                              'expected_length': 1,
                              'expected_fraction': 0.01},
@@ -396,7 +397,7 @@ def test_validate_arguments(predictor):
 
     predictor.config = {
         'analysis_params':
-        {'reference': {'name': 'S228c'},
+        {'reference': {'name': 'S288c'},
          'known_states': [
              {'name': 'CBS432',
               'expected_fraction': 0.01},
@@ -416,7 +417,7 @@ def test_validate_arguments(predictor):
 
     predictor.config = {
         'analysis_params':
-        {'reference': {'name': 'S228c'},
+        {'reference': {'name': 'S288c'},
          'known_states': [
              {'name': 'CBS432',
               'expected_length': 1,
@@ -437,7 +438,7 @@ def test_validate_arguments(predictor):
 
     predictor.config = {
         'analysis_params':
-        {'reference': {'name': 'S228c'},
+        {'reference': {'name': 'S288c'},
          'known_states': [
              {'name': 'CBS432',
               'expected_length': 1,
@@ -457,7 +458,7 @@ def test_validate_arguments(predictor):
 
     predictor.config = {
         'analysis_params':
-        {'reference': {'name': 'S228c'},
+        {'reference': {'name': 'S288c'},
          'known_states': [
              {'name': 'CBS432',
               'expected_length': 1,
@@ -486,13 +487,13 @@ def test_run_prediction_no_pos(predictor, mocker, capsys):
     predictor.hmm_trained = 'hmm_trained.txt'
     predictor.probabilities = 'probs.txt'
     predictor.alignment = 'prefix_{strain}_chr{chrom}.maf'
-    predictor.known_states = 'S228c CBS432 N_45 DBVP UWOP'.split()
+    predictor.known_states = 'S288c CBS432 N_45 DBVP UWOP'.split()
     predictor.unknown_states = ['unknown']
     predictor.states = predictor.known_states + predictor.unknown_states
     predictor.threshold = 'viterbi'
     predictor.config = {
         'analysis_params':
-        {'reference': {'name': 'S228c'},
+        {'reference': {'name': 'S288c'},
          'known_states': [
              {'name': 'CBS432',
               'expected_length': 10000,
@@ -518,9 +519,10 @@ def test_run_prediction_no_pos(predictor, mocker, capsys):
                  side_effect=mock_files)
     mock_gzip = mocker.patch('analyze.predict.gzip.open')
     mocker.patch('analyze.predict.log')
+    mocker.patch('analyze.predict.os.path.exists', return_value=True)
     mocker.patch('analyze.predict.read_fasta',
                  return_value=(None,
-                               [list('NNENNENNEN'),  # S228c
+                               [list('NNENNENNEN'),  # S288c
                                 list('NNNENEENNN'),  # CBS432
                                 list('NN-NNEENNN'),  # N_45
                                 list('NEENN-ENEN'),  # DBVPG6304
@@ -571,13 +573,13 @@ def test_run_prediction_full(predictor, mocker):
     predictor.probabilities = 'probs.txt'
     predictor.positions = 'pos.txt'
     predictor.alignment = 'prefix_{strain}_chr{chrom}.maf'
-    predictor.known_states = 'S228c CBS432 N_45 DBVP UWOP'.split()
+    predictor.known_states = 'S288c CBS432 N_45 DBVP UWOP'.split()
     predictor.unknown_states = ['unknown']
     predictor.states = predictor.known_states + predictor.unknown_states
     predictor.threshold = 'viterbi'
     predictor.config = {
         'analysis_params':
-        {'reference': {'name': 'S228c'},
+        {'reference': {'name': 'S288c'},
          'known_states': [
              {'name': 'CBS432',
               'expected_length': 10000,
@@ -603,9 +605,10 @@ def test_run_prediction_full(predictor, mocker):
                              side_effect=mock_files)
     mock_gzip = mocker.patch('analyze.predict.gzip.open')
     mock_log = mocker.patch('analyze.predict.log')
+    mocker.patch('analyze.predict.os.path.exists', return_value=True)
     mock_fasta = mocker.patch('analyze.predict.read_fasta',
                               return_value=(None,
-                                            [list('NNENNENNEN'),  # S228c
+                                            [list('NNENNENNEN'),  # S288c
                                              list('NNNENEENNN'),  # CBS432
                                              list('NN-NNEENNN'),  # N_45
                                              list('NEENN-ENEN'),  # DBVPG6304
@@ -626,7 +629,7 @@ def test_run_prediction_full(predictor, mocker):
     mock_open.assert_has_calls([
         mocker.call('hmm_initial.txt', 'w'),
         mocker.call('hmm_trained.txt', 'w'),
-        mocker.call('blocksS228c.txt', 'w'),
+        mocker.call('blocksS288c.txt', 'w'),
         mocker.call('blocksCBS432.txt', 'w'),
         mocker.call('blocksN_45.txt', 'w'),
         mocker.call('blocksDBVP.txt', 'w'),
@@ -682,18 +685,18 @@ def test_run_prediction_full(predictor, mocker):
     assert hmm_entry[5] == '0.0'
     assert hmm_entry[6] == '0.0'
 
-    # blocks S228c
+    # blocks S288c
     mock_files[2].__enter__().write.assert_has_calls(
         [
             mocker.call('strain\tchromosome\tpredicted_species'
                         '\tstart\tend\tnum_sites_hmm\n'),
-            mocker.call('s1\tI\tS228c\t0\t1\t2'),
+            mocker.call('s1\tI\tS288c\t0\t1\t2'),
             mocker.call('\n'),
-            mocker.call('s2\tI\tS228c\t0\t1\t2'),
+            mocker.call('s2\tI\tS288c\t0\t1\t2'),
             mocker.call('\n'),
-            mocker.call('s1\tII\tS228c\t0\t1\t2'),
+            mocker.call('s1\tII\tS288c\t0\t1\t2'),
             mocker.call('\n'),
-            mocker.call('s2\tII\tS228c\t0\t1\t2'),
+            mocker.call('s2\tII\tS288c\t0\t1\t2'),
             mocker.call('\n')
         ])
     # blocks CBS432
