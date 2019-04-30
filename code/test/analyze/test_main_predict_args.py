@@ -215,7 +215,7 @@ def test_outputs(runner, mocker):
 
         assert result.exit_code != 0
         assert str(result.exception) == \
-            'No probabilities file provided'
+            'No positions file provided'
         assert mock_log.call_args_list == mock_calls
 
     with runner.isolated_filesystem():
@@ -238,6 +238,7 @@ def test_outputs(runner, mocker):
             '--blocks blocks_{state}.txt --prefix s1_s2 '
             '--hmm-initial hmm_init.txt '
             '--hmm-trained hmm_trained.txt '
+            '--positions pos.txt.gz '
             '--probabilities probs.txt.gz '
         )
 
@@ -266,6 +267,7 @@ def test_outputs(runner, mocker):
             '--blocks blocks_{state}.txt --prefix s1_s2 '
             '--hmm-initial hmm_init.txt '
             '--hmm-trained hmm_trained.txt '
+            '--positions pos.txt.gz '
             '--probabilities probs.txt.gz '
             '--alignment {prefix}_{strain}_chr{chrom}.maf '
         )
@@ -276,7 +278,7 @@ def test_outputs(runner, mocker):
         assert mock_log.call_args_list == mock_calls + [
             mocker.call("Hmm_initial file is 'hmm_init.txt'"),
             mocker.call("Hmm_trained file is 'hmm_trained.txt'"),
-            mocker.call("Positions file is 'None'"),
+            mocker.call("Positions file is 'pos.txt.gz'"),
             mocker.call("Probabilities file is 'probs.txt.gz'"),
             mocker.call("Alignment file is 's1_s2_{strain}_chr{chrom}.maf'"),
             mocker.call("Only considering polymorphic sites"),

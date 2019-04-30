@@ -3,6 +3,7 @@ from operator import itemgetter
 from analyze.introgression_configuration import Configuration
 from analyze.predict import read_blocks
 import click
+import logging as log
 
 
 class ID_producer():
@@ -17,7 +18,7 @@ class ID_producer():
         '''
         Adds a unique region id to block files, producing labeled text files
         '''
-        self.config.validate_id_regions_arguments()
+        self.validate_arguments()
         regions = dict(zip(self.config.chromosomes,
                            [[] for _ in self.config.chromosomes]))
         with ExitStack() as stack:
@@ -68,3 +69,24 @@ class ID_producer():
                     id_counter += 1
                 if progress_bar:
                     progress_bar.update(1)
+
+    def validate_arguments(self):
+        '''
+        Check that all required instance variables are set to perform a
+        id producer run. Returns true if valid, raises value error otherwise
+        '''
+        args = [
+            'chromosomes',
+            'blocks',
+            'labeled_blocks',
+            'states',
+        ]
+        variables = self.config.__dict__
+        for arg in args:
+            if arg not in variables or variables[arg] is None:
+                err = ('Failed to validate ID Producer, required argument '
+                       f"'{arg}' was unset")
+                log.exception(err)
+                raise ValueError(err)
+
+        return True

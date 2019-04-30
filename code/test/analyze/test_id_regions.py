@@ -140,3 +140,18 @@ def test_add_ids(id_producer, mocker):
         mocker.call('r14\tstrain3\tX\tstate1\t10\t100\t1\n'),
     ]
     mocked_file().write.assert_has_calls(calls)
+
+
+def test_validate_arguments(id_producer):
+    with pytest.raises(ValueError) as e:
+        id_producer.validate_arguments()
+    assert ('Failed to validate ID Producer, '
+            "required argument 'chromosomes' was unset") in str(e)
+
+    config = id_producer.config
+    config.chromosomes = 1
+    config.blocks = 1
+    config.labeled_blocks = 1
+    config.states = 1
+
+    assert id_producer.validate_arguments()

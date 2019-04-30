@@ -325,28 +325,20 @@ def test_set_predict_files(config):
 
     with pytest.raises(ValueError) as e:
         config.set_predict_files('init', 'trained', 'pos', 'prob',
-                                   'align{prefix}')
+                                 'align{prefix}')
     assert '{strain} not found in align{prefix}' in str(e)
 
     with pytest.raises(ValueError) as e:
         config.set_predict_files('init', 'trained', 'pos', 'prob',
-                                   'align{prefix}{strain}')
+                                 'align{prefix}{strain}')
     assert '{chrom} not found in align{prefix}{strain}' in str(e)
 
     config.prefix = 'pre'
     config.set_predict_files('init', 'trained', 'pos', 'prob',
-                               'align{prefix}{strain}{chrom}')
+                             'align{prefix}{strain}{chrom}')
     assert config.hmm_initial == 'init'
     assert config.hmm_trained == 'trained'
     assert config.positions == 'pos'
-    assert config.probabilities == 'prob'
-    assert config.alignment == 'alignpre{strain}{chrom}'
-
-    config.set_predict_files('init', 'trained', '', 'prob',
-                               'align{prefix}{strain}{chrom}')
-    assert config.hmm_initial == 'init'
-    assert config.hmm_trained == 'trained'
-    assert config.positions is None
     assert config.probabilities == 'prob'
     assert config.alignment == 'alignpre{strain}{chrom}'
 
@@ -357,18 +349,18 @@ def test_set_predict_files(config):
 
     with pytest.raises(ValueError) as e:
         config.config = {'paths': {'analysis': {'hmm_initial': 'init',
-                                                   'hmm_trained': 'trained',
-                                                   'positions': 'pos'
-                                                   }}}
+                                                'hmm_trained': 'trained',
+                                                'positions': 'pos'
+                                                }}}
         config.set_predict_files('', '', '', '', '')
     assert 'No probabilities file provided' in str(e)
 
     with pytest.raises(ValueError) as e:
         config.config = {'paths': {'analysis': {'hmm_initial': 'init',
-                                                   'hmm_trained': 'trained',
-                                                   'positions': 'pos',
-                                                   'probabilities': 'prob'
-                                                   }}}
+                                                'hmm_trained': 'trained',
+                                                'positions': 'pos',
+                                                'probabilities': 'prob'
+                                                }}}
         config.set_predict_files('', '', '', '', '')
     assert 'No alignment file provided' in str(e)
 
@@ -386,207 +378,3 @@ def test_set_predict_files(config):
     assert config.positions == 'pos'
     assert config.probabilities == 'prob'
     assert config.alignment == 'alignpre{strain}{chrom}'
-
-    config.config = {'paths': {'analysis': {
-        'hmm_initial': 'init',
-        'hmm_trained': 'trained',
-        'probabilities': 'prob',
-        'alignment': 'align{prefix}{strain}{chrom}'
-    }}}
-    config.set_predict_files('', '', '', '', '')
-
-    assert config.hmm_initial == 'init'
-    assert config.hmm_trained == 'trained'
-    assert config.positions is None
-    assert config.probabilities == 'prob'
-    assert config.alignment == 'alignpre{strain}{chrom}'
-
-
-def test_validate_predict_arguments(config):
-    config.chromosomes = 1
-    config.blocks = 1
-    config.prefix = 1
-    config.strains = 1
-    config.hmm_initial = 1
-    config.hmm_trained = 1
-    config.probabilities = 1
-    config.alignment = 1
-    config.known_states = 1
-    config.unknown_states = 1
-    config.threshold = 1
-    config.config = {
-        'analysis_params':
-        {'reference': {'name': 'S288c'},
-         'known_states': [
-             {'name': 'CBS432',
-              'expected_length': 1,
-              'expected_fraction': 0.01},
-             {'name': 'N_45',
-              'expected_length': 1,
-              'expected_fraction': 0.01},
-             {'name': 'DBVPG6304',
-              'expected_length': 1,
-              'expected_fraction': 0.01},
-             {'name': 'UWOPS91_917_1',
-              'expected_length': 1,
-              'expected_fraction': 0.01},
-         ],
-         'unknown_states': [{'name': 'unknown',
-                             'expected_length': 1,
-                             'expected_fraction': 0.01},
-                            ]
-         }
-    }
-
-    assert config.validate_predict_arguments()
-
-    args = [
-        'chromosomes',
-        'blocks',
-        'prefix',
-        'strains',
-        'hmm_initial',
-        'hmm_trained',
-        'probabilities',
-        'alignment',
-        'known_states',
-        'unknown_states',
-        'threshold'
-    ]
-
-    for arg in args:
-        config.__dict__[arg] = None
-        with pytest.raises(ValueError) as e:
-            config.validate_predict_arguments()
-        assert ('Failed to validate Predictor, '
-                f"required argument '{arg}' was unset") in str(e)
-        config.__dict__[arg] = 1
-
-    config.config = {
-        'analysis_params':
-        {'reference': {'name': 'S288c'},
-         'unknown_states': [{'name': 'unknown',
-                             'expected_length': 1,
-                             'expected_fraction': 0.01},
-                            ]
-         }
-    }
-    with pytest.raises(ValueError) as e:
-        config.validate_predict_arguments()
-    assert 'Configuration did not provide any known_states' in str(e)
-
-    config.config = {
-        'analysis_params':
-        {'known_states': [
-             {'name': 'CBS432',
-              'expected_length': 1,
-              'expected_fraction': 0.01},
-             {'name': 'N_45',
-              'expected_length': 1,
-              'expected_fraction': 0.01},
-         ],
-         'unknown_states': [{'name': 'unknown',
-                             'expected_length': 1,
-                             'expected_fraction': 0.01},
-                            ]
-         }
-    }
-    with pytest.raises(ValueError) as e:
-        config.validate_predict_arguments()
-    assert 'Configuration did not specify a reference strain' in str(e)
-
-    config.config = {
-        'analysis_params':
-        {'reference': {'name': 'S288c'},
-         'known_states': [
-             {'name': 'CBS432',
-              'expected_fraction': 0.01},
-             {'name': 'N_45',
-              'expected_length': 1,
-              'expected_fraction': 0.01},
-         ],
-         'unknown_states': [{'name': 'unknown',
-                             'expected_length': 1,
-                             'expected_fraction': 0.01},
-                            ]
-         }
-    }
-    with pytest.raises(ValueError) as e:
-        config.validate_predict_arguments()
-    assert 'CBS432 did not provide an expected_length' in str(e)
-
-    config.config = {
-        'analysis_params':
-        {'reference': {'name': 'S288c'},
-         'known_states': [
-             {'name': 'CBS432',
-              'expected_length': 1,
-              'expected_fraction': 0.01},
-             {'name': 'N_45',
-              'expected_length': 1,
-              },
-         ],
-         'unknown_states': [{'name': 'unknown',
-                             'expected_length': 1,
-                             'expected_fraction': 0.01},
-                            ]
-         }
-    }
-    with pytest.raises(ValueError) as e:
-        config.validate_predict_arguments()
-    assert 'N_45 did not provide an expected_fraction' in str(e)
-
-    config.config = {
-        'analysis_params':
-        {'reference': {'name': 'S288c'},
-         'known_states': [
-             {'name': 'CBS432',
-              'expected_length': 1,
-              'expected_fraction': 0.01},
-             {'name': 'N_45',
-              'expected_length': 1,
-              'expected_fraction': 0.01},
-         ],
-         'unknown_states': [{'name': 'unknown',
-                             'expected_fraction': 0.01},
-                            ]
-         }
-    }
-    with pytest.raises(ValueError) as e:
-        config.validate_predict_arguments()
-    assert 'unknown did not provide an expected_length' in str(e)
-
-    config.config = {
-        'analysis_params':
-        {'reference': {'name': 'S288c'},
-         'known_states': [
-             {'name': 'CBS432',
-              'expected_length': 1,
-              'expected_fraction': 0.01},
-             {'name': 'N_45',
-              'expected_length': 1,
-              'expected_fraction': 0.01},
-         ],
-         'unknown_states': [{'name': 'unknown',
-                             'expected_length': 1,
-                             },
-                            ]
-         }
-    }
-    with pytest.raises(ValueError) as e:
-        config.validate_predict_arguments()
-    assert 'unknown did not provide an expected_fraction' in str(e)
-
-
-def test_validate_id_regions_arguments(config):
-    with pytest.raises(ValueError) as e:
-        config.validate_id_regions_arguments()
-    assert ('Failed to validate ID Producer, '
-            "required argument 'chromosomes' was unset") in str(e)
-
-    config.chromosomes = 1
-    config.blocks = 1
-    config.labeled_blocks = 1
-    config.states = 1
-
-    assert config.validate_id_regions_arguments()

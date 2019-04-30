@@ -40,90 +40,183 @@ def test_predictor(predictor):
     assert predictor.config.unknown_states == ['unknown']
 
 
-def test_run_prediction_no_pos(predictor, config, mocker, capsys):
-    config.chromosomes = ['I', 'II']
-    config.blocks = 'blocks{state}.txt'
-    config.prefix = 'prefix'
-    config.strains = ['s1', 's2']
-    config.hmm_initial = 'hmm_initial.txt'
-    config.hmm_trained = 'hmm_trained.txt'
-    config.probabilities = 'probs.txt'
-    config.positions = None
-    config.alignment = 'prefix_{strain}_chr{chrom}.maf'
-    config.known_states = 'S288c CBS432 N_45 DBVP UWOP'.split()
-    config.unknown_states = ['unknown']
-    config.states = config.known_states + config.unknown_states
-    config.threshold = 'viterbi'
+def test_validate_arguments(predictor):
+    config = predictor.config
+    config.chromosomes = 1
+    config.blocks = 1
+    config.prefix = 1
+    config.strains = 1
+    config.hmm_initial = 1
+    config.hmm_trained = 1
+    config.probabilities = 1
+    config.positions = 1
+    config.alignment = 1
+    config.known_states = 1
+    config.unknown_states = 1
+    config.threshold = 1
     config.config = {
         'analysis_params':
         {'reference': {'name': 'S288c'},
          'known_states': [
              {'name': 'CBS432',
-              'expected_length': 10000,
-              'expected_fraction': 0.025},
+              'expected_length': 1,
+              'expected_fraction': 0.01},
              {'name': 'N_45',
-              'expected_length': 10000,
-              'expected_fraction': 0.025},
-             {'name': 'DBVP',
-              'expected_length': 10000,
-              'expected_fraction': 0.025},
-             {'name': 'UWOP',
-              'expected_length': 10000,
-              'expected_fraction': 0.025},
+              'expected_length': 1,
+              'expected_fraction': 0.01},
+             {'name': 'DBVPG6304',
+              'expected_length': 1,
+              'expected_fraction': 0.01},
+             {'name': 'UWOPS91_917_1',
+              'expected_length': 1,
+              'expected_fraction': 0.01},
          ],
          'unknown_states': [{'name': 'unknown',
-                             'expected_length': 1000,
+                             'expected_length': 1,
                              'expected_fraction': 0.01},
                             ]
          }
     }
-    mock_files = [mocker.MagicMock() for i in range(8)]
-    mocker.patch('analyze.predict.open',
-                 side_effect=mock_files)
-    mock_gzip = mocker.patch('analyze.predict.gzip.open')
-    mocker.patch('analyze.predict.log')
-    mocker.patch('analyze.predict.os.path.exists', return_value=True)
-    mocker.patch('analyze.predict.read_fasta',
-                 return_value=(None,
-                               [list('NNENNENNEN'),  # S288c
-                                list('NNNENEENNN'),  # CBS432
-                                list('NN-NNEENNN'),  # N_45
-                                list('NEENN-ENEN'),  # DBVPG6304
-                                list('ENENNEENEN'),  # UWOPS..
-                                list('NNENNEENEN'),  # predicted
-                                ]
-                               ))
 
-    mock_log_hmm = mocker.patch('hmm.hmm_bw.log.info')
+    assert predictor.validate_arguments()
 
-    predictor.run_prediction(only_poly_sites=True)
+    args = [
+        'chromosomes',
+        'blocks',
+        'prefix',
+        'strains',
+        'hmm_initial',
+        'hmm_trained',
+        'probabilities',
+        'positions',
+        'alignment',
+        'known_states',
+        'unknown_states',
+        'threshold'
+    ]
 
-    # check hmm output
-    assert mock_log_hmm.call_args_list[-3:] == \
-        [mocker.call('Iteration 8'),
-         mocker.call('Iteration 9'),
-         mocker.call('finished in 10 iterations')]
+    for arg in args:
+        config.__dict__[arg] = None
+        with pytest.raises(ValueError) as e:
+            predictor.validate_arguments()
+        assert ('Failed to validate Predictor, '
+                f"required argument '{arg}' was unset") in str(e)
+        config.__dict__[arg] = 1
 
-    assert mock_gzip.call_args_list == [mocker.call('probs.txt', 'wt')]
+    config.config = {
+        'analysis_params':
+        {'reference': {'name': 'S288c'},
+         'unknown_states': [{'name': 'unknown',
+                             'expected_length': 1,
+                             'expected_fraction': 0.01},
+                            ]
+         }
+    }
+    with pytest.raises(ValueError) as e:
+        predictor.validate_arguments()
+    assert 'Configuration did not provide any known_states' in str(e)
 
-    # probs and pos interspersed
-    print(mock_gzip.return_value.__enter__().write.call_args_list)
-    assert mock_gzip.return_value.__enter__().write.call_args_list == \
-        [
-            mocker.call('s1\tI\t'),
-            mocker.ANY,
-            mocker.call('\n'),
-            mocker.call('s2\tI\t'),
-            mocker.ANY,
-            mocker.call('\n'),
-            mocker.call('s1\tII\t'),
-            mocker.ANY,
-            mocker.call('\n'),
-            mocker.call('s2\tII\t'),
-            mocker.ANY,
-            mocker.call('\n'),
+    config.config = {
+        'analysis_params':
+        {'known_states': [
+             {'name': 'CBS432',
+              'expected_length': 1,
+              'expected_fraction': 0.01},
+             {'name': 'N_45',
+              'expected_length': 1,
+              'expected_fraction': 0.01},
+         ],
+         'unknown_states': [{'name': 'unknown',
+                             'expected_length': 1,
+                             'expected_fraction': 0.01},
+                            ]
+         }
+    }
+    with pytest.raises(ValueError) as e:
+        predictor.validate_arguments()
+    assert 'Configuration did not specify a reference strain' in str(e)
 
-        ]
+    config.config = {
+        'analysis_params':
+        {'reference': {'name': 'S288c'},
+         'known_states': [
+             {'name': 'CBS432',
+              'expected_fraction': 0.01},
+             {'name': 'N_45',
+              'expected_length': 1,
+              'expected_fraction': 0.01},
+         ],
+         'unknown_states': [{'name': 'unknown',
+                             'expected_length': 1,
+                             'expected_fraction': 0.01},
+                            ]
+         }
+    }
+    with pytest.raises(ValueError) as e:
+        predictor.validate_arguments()
+    assert 'CBS432 did not provide an expected_length' in str(e)
+
+    config.config = {
+        'analysis_params':
+        {'reference': {'name': 'S288c'},
+         'known_states': [
+             {'name': 'CBS432',
+              'expected_length': 1,
+              'expected_fraction': 0.01},
+             {'name': 'N_45',
+              'expected_length': 1,
+              },
+         ],
+         'unknown_states': [{'name': 'unknown',
+                             'expected_length': 1,
+                             'expected_fraction': 0.01},
+                            ]
+         }
+    }
+    with pytest.raises(ValueError) as e:
+        predictor.validate_arguments()
+    assert 'N_45 did not provide an expected_fraction' in str(e)
+
+    config.config = {
+        'analysis_params':
+        {'reference': {'name': 'S288c'},
+         'known_states': [
+             {'name': 'CBS432',
+              'expected_length': 1,
+              'expected_fraction': 0.01},
+             {'name': 'N_45',
+              'expected_length': 1,
+              'expected_fraction': 0.01},
+         ],
+         'unknown_states': [{'name': 'unknown',
+                             'expected_fraction': 0.01},
+                            ]
+         }
+    }
+    with pytest.raises(ValueError) as e:
+        predictor.validate_arguments()
+    assert 'unknown did not provide an expected_length' in str(e)
+
+    config.config = {
+        'analysis_params':
+        {'reference': {'name': 'S288c'},
+         'known_states': [
+             {'name': 'CBS432',
+              'expected_length': 1,
+              'expected_fraction': 0.01},
+             {'name': 'N_45',
+              'expected_length': 1,
+              'expected_fraction': 0.01},
+         ],
+         'unknown_states': [{'name': 'unknown',
+                             'expected_length': 1,
+                             },
+                            ]
+         }
+    }
+    with pytest.raises(ValueError) as e:
+        predictor.validate_arguments()
+    assert 'unknown did not provide an expected_fraction' in str(e)
 
 
 def test_run_prediction_full(predictor, config, mocker):

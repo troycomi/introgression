@@ -88,7 +88,7 @@ class Predictor():
         '''
         Run prediction with this predictor object
         '''
-        self.config.validate_predict_arguments()
+        self.validate_arguments()
 
         hmm_builder = HMM_Builder(self.config)
         hmm_builder.set_expected_values()
@@ -98,16 +98,11 @@ class Predictor():
         with open(self.config.hmm_initial, 'w') as initial, \
                 open(self.config.hmm_trained, 'w') as trained, \
                 gzip.open(self.config.probabilities, 'wt') as probabilities, \
+                gzip.open(self.config.positions, 'wt') as positions, \
                 ExitStack() as stack:
 
             self.write_hmm_header(initial)
             self.write_hmm_header(trained)
-
-            if self.config.positions is not None:
-                positions = stack.enter_context(
-                    gzip.open(self.config.positions, 'wt'))
-            else:
-                positions = None
 
             block_writers = {state:
                              stack.enter_context(
@@ -151,8 +146,7 @@ class Predictor():
                             hmm_trained)
                         state_blocks = self.convert_to_blocks(predicted_states)
 
-                        if positions is not None:
-                            self.write_positions(pos, positions, strain, chrom)
+                        self.write_positions(pos, positions, strain, chrom)
 
                         for state, block in state_blocks.items():
                             self.write_blocks(block,
@@ -167,6 +161,70 @@ class Predictor():
 
                     if progress_bar:
                         progress_bar.update(1)
+
+    def validate_arguments(self):
+        '''
+        Check that all required instance variables are set to perform a
+        prediction run. Returns true if valid, raises value error otherwise
+        '''
+        args = [
+            'chromosomes',
+            'blocks',
+            'prefix',
+            'strains',
+            'hmm_initial',
+            'hmm_trained',
+            'probabilities',
+            'positions',
+            'alignment',
+            'known_states',
+            'unknown_states',
+            'threshold',
+        ]
+        variables = self.config.__dict__
+        for arg in args:
+            if arg not in variables or variables[arg] is None:
+                err = ('Failed to validate Predictor, required argument '
+                       f"'{arg}' was unset")
+                log.exception(err)
+                raise ValueError(err)
+
+        # check the parameters for each state are present
+        known_states = self.config.get('analysis_params.known_states')
+        if known_states is None:
+            err = 'Configuration did not provide any known_states'
+            log.exception(err)
+            raise ValueError(err)
+
+        for s in known_states:
+            if 'expected_length' not in s:
+                err = f'{s["name"]} did not provide an expected_length'
+                log.exception(err)
+                raise ValueError(err)
+            if 'expected_fraction' not in s:
+                err = f'{s["name"]} did not provide an expected_fraction'
+                log.exception(err)
+                raise ValueError(err)
+
+        unknown_states = self.config.get('analysis_params.unknown_states')
+        if unknown_states is not None:
+            for s in unknown_states:
+                if 'expected_length' not in s:
+                    err = f'{s["name"]} did not provide an expected_length'
+                    log.exception(err)
+                    raise ValueError(err)
+                if 'expected_fraction' not in s:
+                    err = f'{s["name"]} did not provide an expected_fraction'
+                    log.exception(err)
+                    raise ValueError(err)
+
+        reference = self.config.get('analysis_params.reference')
+        if reference is None:
+            err = f'Configuration did not specify a reference strain'
+            log.exception(err)
+            raise ValueError(err)
+
+        return True
 
     def write_hmm_header(self, writer: TextIO) -> None:
         '''

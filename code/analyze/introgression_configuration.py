@@ -233,11 +233,10 @@ class Configuration():
                                     'No trained hmm file provided',
                                     hmm_trained)
 
-        if positions == '':
-            self.positions = get_nested(self.config,
-                                        'paths.analysis.positions')
-        else:
-            self.positions = positions
+        self.positions = validate(self.config,
+                                  'paths.analysis.positions',
+                                  'No positions file provided',
+                                  positions)
 
         self.probabilities = validate(self.config,
                                       'paths.analysis.probabilities',
@@ -301,90 +300,6 @@ class Configuration():
         key is not in dict
         '''
         return get_nested(self.config, key)
-
-    def validate_predict_arguments(self):
-        '''
-        Check that all required instance variables are set to perform a
-        prediction run. Returns true if valid, raises value error otherwise
-        '''
-        args = [
-            'chromosomes',
-            'blocks',
-            'prefix',
-            'strains',
-            'hmm_initial',
-            'hmm_trained',
-            'probabilities',
-            'alignment',
-            'known_states',
-            'unknown_states',
-            'threshold',
-        ]
-        variables = self.__dict__
-        for arg in args:
-            if arg not in variables or variables[arg] is None:
-                err = ('Failed to validate Predictor, required argument '
-                       f"'{arg}' was unset")
-                log.exception(err)
-                raise ValueError(err)
-
-        # check the parameters for each state are present
-        known_states = self.get('analysis_params.known_states')
-        if known_states is None:
-            err = 'Configuration did not provide any known_states'
-            log.exception(err)
-            raise ValueError(err)
-
-        for s in known_states:
-            if 'expected_length' not in s:
-                err = f'{s["name"]} did not provide an expected_length'
-                log.exception(err)
-                raise ValueError(err)
-            if 'expected_fraction' not in s:
-                err = f'{s["name"]} did not provide an expected_fraction'
-                log.exception(err)
-                raise ValueError(err)
-
-        unknown_states = self.get('analysis_params.unknown_states')
-        if unknown_states is not None:
-            for s in unknown_states:
-                if 'expected_length' not in s:
-                    err = f'{s["name"]} did not provide an expected_length'
-                    log.exception(err)
-                    raise ValueError(err)
-                if 'expected_fraction' not in s:
-                    err = f'{s["name"]} did not provide an expected_fraction'
-                    log.exception(err)
-                    raise ValueError(err)
-
-        reference = self.get('analysis_params.reference')
-        if reference is None:
-            err = f'Configuration did not specify a reference strain'
-            log.exception(err)
-            raise ValueError(err)
-
-        return True
-
-    def validate_id_regions_arguments(self):
-        '''
-        Check that all required instance variables are set to perform a
-        id producer run. Returns true if valid, raises value error otherwise
-        '''
-        args = [
-            'chromosomes',
-            'blocks',
-            'labeled_blocks',
-            'states',
-        ]
-        variables = self.__dict__
-        for arg in args:
-            if arg not in variables or variables[arg] is None:
-                err = ('Failed to validate ID Producer, required argument '
-                       f"'{arg}' was unset")
-                log.exception(err)
-                raise ValueError(err)
-
-        return True
 
     def __repr__(self):
         return ('Config file:\n' +

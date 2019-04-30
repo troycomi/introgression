@@ -26,9 +26,9 @@ def main() -> None:
     -{species}_chr_intervals.txt
     -{species}_chr_mafft.fa
     -{species}_chr_mafft.fa
+    -positions_{tag}.txt.gz
 
     Output files:
-    -positions_{tag}.txt.gz
     -regions file as {species}.fa.gz
     -index file for the fz.gz
     -blocks_{species}_quality.txt
