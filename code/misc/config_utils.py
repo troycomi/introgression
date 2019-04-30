@@ -1,6 +1,6 @@
 import re
 from copy import copy
-from typing import Dict, List, Tuple
+from typing import Dict, List
 import logging as log
 
 
@@ -202,33 +202,6 @@ def check_wildcards(path: str, wildcards: str) -> bool:
             raise ValueError(err)
 
     return True
-
-
-def get_states(config: Dict) -> Tuple[List, List]:
-    '''
-    From the provided config dict, build lists of known and unknown states
-    from the analysis params
-    '''
-
-    ref = get_nested(config, 'analysis_params.reference.name')
-    if ref is None:
-        ref = []
-    else:
-        ref = [ref]
-
-    known = get_nested(config, 'analysis_params.known_states')
-    if known is None:
-        known = []
-
-    known_states = ref + [s['name'] for s in known]
-
-    unknown = get_nested(config, 'analysis_params.unknown_states')
-    if unknown is None:
-        unknown = []
-
-    unknown_states = [s['name'] for s in unknown]
-
-    return known_states, unknown_states
 
 
 def validate(config: Dict,

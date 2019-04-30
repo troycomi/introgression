@@ -1,8 +1,9 @@
 import click
 import yaml
 import logging as log
-from misc import config_utils
 import analyze.predict
+from analyze.introgression_configuration import Configuration
+from analyze.id_regions import ID_producer
 
 
 # TODO also check for snakemake object?
@@ -31,40 +32,31 @@ def cli(ctx, config, verbosity, log_file):
         ('DEBUG', log.DEBUG),
     ][verbosity]
 
-    ctx.ensure_object(dict)
+    ctx.ensure_object(Configuration)
 
     confs = len(config)
     for path in config:
         conf = yaml.safe_load(path)
-        ctx.obj = config_utils.merge_dicts(ctx.obj, conf)
+        ctx.obj.add_config(conf)
 
-    ctx.obj = config_utils.clean_config(ctx.obj)
-
-    if log_file == '':
-        log_file = config_utils.get_nested(ctx.obj, 'paths.log_file')
-
-    if config_utils.get_nested(ctx.obj, 'paths'):
-        ctx.obj['paths']['log_file'] = log_file
-
-    if log_file is not None:
-        log.basicConfig(level=level, filename=log_file, filemode='w')
+    ctx.obj.set_log_file(log_file)
+    if ctx.obj.log_file is not None:
+        log.basicConfig(level=level, filename=ctx.obj.log_file, filemode='w')
     else:
         log.basicConfig(level=level)
     log.info(f'Verbosity set to {levelstr}')
 
     log.info(f'Read in {confs} config file{"" if confs == 1 else "s"}')
-    log.debug('Cleaned config:\n' + config_utils.print_dict(ctx.obj))
+    log.debug('Cleaned config:\n' + repr(ctx.obj))
 
     if ctx.invoked_subcommand is None:
         click.echo_via_pager(
             click.style(
                 'No command supplied. Read in the following config:\n',
-                fg='yellow') +
-            config_utils.print_dict(ctx.obj))
+                fg='yellow') + repr(ctx.obj))
 
 
 @cli.command()
-@click.pass_context
 @click.option('--blocks', default='', help='Block file location with {state}')
 @click.option('--prefix', default='', help='Prefix of test-strain files '
               'default to list of states joined with _.')
@@ -87,6 +79,7 @@ def cli(ctx, config, verbosity, log_file):
 @click.option('--only-poly-sites/--all-sites', default=True,
               help='Consider only polymorphic sites or all sites. '
               'Default is only polymorphic.')
+@click.pass_context
 def predict(ctx,
             blocks,
             prefix,
@@ -100,40 +93,72 @@ def predict(ctx,
             only_poly_sites):
     config = ctx.obj
 
-    predictor = analyze.predict.Predictor(config)
-    predictor.set_chromosomes()
-    log.info(f'Found {len(predictor.chromosomes)} chromosomes in config')
+    config.set_chromosomes()
+    log.info(f'Found {len(config.chromosomes)} chromosomes in config')
 
-    predictor.set_threshold(threshold)
-    log.info(f'Threshold value is \'{predictor.threshold}\'')
+    config.set_threshold(threshold)
+    log.info(f'Threshold value is \'{config.threshold}\'')
 
-    predictor.set_blocks_file(blocks)
-    log.info(f'Output blocks file is \'{predictor.blocks}\'')
+    config.set_blocks_file(blocks)
+    log.info(f'Output blocks file is \'{config.blocks}\'')
 
-    predictor.set_prefix(prefix)
-    log.info(f'Prefix is \'{predictor.prefix}\'')
+    config.set_states()
+    config.set_prefix(prefix)
+    log.info(f'Prefix is \'{config.prefix}\'')
 
-    predictor.set_strains(test_strains)
-    if predictor.test_strains is None:
+    config.set_strains(test_strains)
+    if config.test_strains is None:
         log.info(f'No test_strains provided')
     else:
-        str_len = len(predictor.test_strains)
+        str_len = len(config.test_strains)
         log.info(f'Found {str_len} test strain'
                  f'{"" if str_len == 1 else "s"}')
-    log.info(f'Found {len(predictor.strains)} unique strains')
+    str_len = len(config.strains)
+    log.info(f'Found {str_len} unique strain'
+             f'{"" if str_len == 1 else "s"}')
 
-    predictor.set_output_files(hmm_initial,
-                               hmm_trained,
-                               positions,
-                               probabilities,
-                               alignment)
-    log.info(f'Hmm_initial file is \'{predictor.hmm_initial}\'')
-    log.info(f'Hmm_trained file is \'{predictor.hmm_trained}\'')
-    log.info(f'Positions file is \'{predictor.positions}\'')
-    log.info(f'Probabilities file is \'{predictor.probabilities}\'')
-    log.info(f'Alignment file is \'{predictor.alignment}\'')
+    config.set_predict_files(hmm_initial,
+                             hmm_trained,
+                             positions,
+                             probabilities,
+                             alignment)
+    log.info(f'Hmm_initial file is \'{config.hmm_initial}\'')
+    log.info(f'Hmm_trained file is \'{config.hmm_trained}\'')
+    log.info(f'Positions file is \'{config.positions}\'')
+    log.info(f'Probabilities file is \'{config.probabilities}\'')
+    log.info(f'Alignment file is \'{config.alignment}\'')
 
+    predictor = analyze.predict.Predictor(config)
+    if only_poly_sites:
+        log.info('Only considering polymorphic sites')
+    else:
+        log.info('Considering all sites')
     predictor.run_prediction(only_poly_sites)
+
+
+# accept multiple states and pass as list
+@cli.command()
+@click.option('--blocks', default='', help='Block file location with {state}')
+@click.option('--labeled', default='', help='Block file location with {state}')
+@click.option('--state', multiple=True, help='States to add ids to')
+@click.pass_context
+def id_regions(ctx, blocks, labeled, state):
+    config = ctx.obj
+    config.set_chromosomes()
+    log.info(f'Found {len(config.chromosomes)} chromosomes in config')
+
+    state = list(state)
+    config.set_states(state)
+    log.info(f'Found {len(config.states)} states to process')
+
+    config.set_blocks_file(blocks)
+    log.info(f'Input blocks file is \'{config.blocks}\'')
+
+    config.set_labeled_blocks_file(labeled)
+    log.info(f'Output blocks file is \'{config.labeled_blocks}\'')
+
+    id_producer = ID_producer(config)
+    id_producer.add_ids()
 
 
 if __name__ == '__main__':

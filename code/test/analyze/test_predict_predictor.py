@@ -5,12 +5,13 @@ from io import StringIO
 from collections import defaultdict
 import random
 import numpy as np
+from analyze.introgression_configuration import Configuration
 
 
 @pytest.fixture
-def predictor():
-    result = predict.Predictor(
-        configuration={
+def config():
+    config = Configuration()
+    config.add_config({
             'analysis_params':
             {'reference': {'name': 'S288c'},
              'known_states': [
@@ -21,477 +22,39 @@ def predictor():
              ],
              'unknown_states': [{'name': 'unknown'}]
              }
-        }
-    )
+        })
+
+    return config
+
+
+@pytest.fixture
+def predictor(config):
+    result = predict.Predictor(config)
+    config.set_states()
     return result
 
 
 def test_predictor(predictor):
-    assert predictor.known_states ==\
+    assert predictor.config.known_states ==\
         'S288c CBS432 N_45 DBVPG6304 UWOPS91_917_1'.split()
-    assert predictor.unknown_states == ['unknown']
+    assert predictor.config.unknown_states == ['unknown']
 
 
-def test_set_chromosomes(predictor):
-    with pytest.raises(ValueError) as e:
-        predictor.set_chromosomes()
-    assert 'No chromosomes specified in config file!' in str(e)
-
-    predictor.config = {'chromosomes': ['I']}
-    predictor.set_chromosomes()
-    assert predictor.chromosomes == ['I']
-
-
-def test_set_blocks_file(predictor):
-    with pytest.raises(ValueError) as e:
-        predictor.set_blocks_file('blocks_file')
-    assert '{state} not found in blocks_file' in str(e)
-
-    predictor.set_blocks_file('blocks_file{state}')
-    assert predictor.blocks == 'blocks_file{state}'
-
-    with pytest.raises(ValueError) as e:
-        predictor.set_blocks_file()
-    assert 'No block file provided' in str(e)
-
-    predictor.config = {'paths': {'analysis': {'block_files': 'blocks_file'}}}
-    with pytest.raises(ValueError) as e:
-        predictor.set_blocks_file()
-    assert '{state} not found in blocks_file' in str(e)
-
-    predictor.config = {'paths': {'analysis': {'block_files':
-                                               'blocks_file{state}'}}}
-    predictor.set_blocks_file()
-    assert predictor.blocks == 'blocks_file{state}'
-
-
-def test_set_prefix(predictor):
-    predictor.known_states = ['s1']
-    predictor.set_prefix()
-    assert predictor.prefix == 's1'
-
-    predictor.known_states = 's1 s2'.split()
-    predictor.set_prefix()
-    assert predictor.prefix == 's1_s2'
-
-    predictor.set_prefix('prefix')
-    assert predictor.prefix == 'prefix'
-
-    predictor.known_states = []
-    with pytest.raises(ValueError) as e:
-        predictor.set_prefix()
-    assert 'Unable to build prefix, no known states provided' in str(e)
-
-
-def test_set_threshold(predictor):
-    with pytest.raises(ValueError) as e:
-        predictor.set_threshold()
-    assert 'No threshold provided' in str(e)
-
-    predictor.config = {'analysis_params': {'threshold': 'asdf'}}
-    with pytest.raises(ValueError) as e:
-        predictor.set_threshold()
-    assert 'Unsupported threshold value: asdf' in str(e)
-
-    predictor.set_threshold(0.05)
-    assert predictor.threshold == 0.05
-
-    predictor.config = {'analysis_params':
-                        {'threshold': 'viterbi'}}
-    predictor.set_threshold()
-    assert predictor.threshold == 'viterbi'
-
-
-def test_set_strains(predictor, mocker):
-    mock_find = mocker.patch.object(predict.Predictor, 'find_strains')
-
-    predictor.set_strains()
-    mock_find.called_with(None)
-
-    with pytest.raises(ValueError) as e:
-        predictor.config = {'paths': {'test_strains': ['test']}}
-        predictor.set_strains()
-    assert '{strain} not found in test' in str(e)
-
-    with pytest.raises(ValueError) as e:
-        predictor.config = {'paths': {'test_strains': ['test{strain}']}}
-        predictor.set_strains()
-    assert '{chrom} not found in test{strain}' in str(e)
-
-    predictor.config = {'paths': {'test_strains':
-                                  ['test{strain}{chrom}']}}
-    predictor.set_strains()
-    mock_find.called_with(['test{strain}{chrom}'])
-
-    predictor.set_strains('test{strain}{chrom}')
-    mock_find.called_with(['test{strain}{chrom}'])
-
-
-def test_find_strains(predictor, mocker):
-    with pytest.raises(ValueError) as e:
-        predictor.find_strains()
-    assert ('Unable to find strains in config and '
-            'no test_strains provided') in str(e)
-
-    predictor.config = {'strains': ['test2', 'test1']}
-    predictor.find_strains()
-    # sorted
-    assert predictor.strains == 'test1 test2'.split()
-
-    predictor.config = {}
-    predictor.chromosomes = ['I']
-
-    # too many chroms for s1
-    mock_glob = mocker.patch('analyze.predict.glob.iglob',
-                             side_effect=[[
-                                 'test_prefix_s1_cII.fa',
-                                 'test_prefix_s2_cII.fa',
-                                 'test_prefix_s1_cIII.fa',
-                                 'test_prefix.fa',
-                             ]])
-    mock_log = mocker.patch('analyze.predict.log')
-    with pytest.raises(ValueError) as e:
-        predictor.find_strains(['test_prefix_{strain}_c{chrom}.fa'])
-
-    assert "Strain s1 is missing chromosomes. Unable to find chromosome 'I'"\
-        in str(e)
-    mock_glob.assert_called_with('test_prefix_*_c*.fa')
-    mock_log.info.assert_called_with('searching for test_prefix_*_c*.fa')
-    assert mock_log.debug.call_args_list == \
-        [mocker.call("matched with ('s1', 'II')"),
-         mocker.call("matched with ('s2', 'II')"),
-         mocker.call("matched with ('s1', 'III')"),
-         ]
-
-    # no matches
-    mock_glob = mocker.patch('analyze.predict.glob.iglob',
-                             side_effect=[[
-                                 'test_prefix.fa',
-                             ]])
-    mock_log = mocker.patch('analyze.predict.log')
-    with pytest.raises(ValueError) as e:
-        predictor.find_strains(['test_prefix_{strain}_{chrom}.fa'])
-    assert ('Found no chromosome sequence files in '
-            "['test_prefix_{strain}_{chrom}.fa']") in str(e)
-    mock_glob.assert_called_with('test_prefix_*_*.fa')
-    mock_log.info.assert_called_with('searching for test_prefix_*_*.fa')
-    assert mock_log.debug.call_args_list == []
-
-    # correct, with second test_strains, extra chromosomes
-    mock_glob = mocker.patch('analyze.predict.glob.iglob',
-                             side_effect=[
-                                 [
-                                     'test_prefix_s1_cI.fa',
-                                     'test_prefix_s2_cI.fa',
-                                     'test_prefix_s2_cII.fa',
-                                     'test_prefix.fa',
-                                 ],
-                                 ['test_prefix_cI_s3.fa']
-                             ])
-    mock_log = mocker.patch('analyze.predict.log')
-    predictor.find_strains(['test_prefix_{strain}_c{chrom}.fa',
-                            'test_prefix_c{chrom}_{strain}.fa'])
-    assert mock_glob.call_args_list == \
-        [mocker.call('test_prefix_*_c*.fa'),
-         mocker.call('test_prefix_c*_*.fa')]
-    assert mock_log.info.call_args_list ==\
-        [mocker.call('searching for test_prefix_*_c*.fa'),
-         mocker.call('searching for test_prefix_c*_*.fa')]
-    assert mock_log.debug.call_args_list == \
-        [mocker.call("matched with ('s1', 'I')"),
-         mocker.call("matched with ('s2', 'I')"),
-         mocker.call("matched with ('s2', 'II')"),
-         mocker.call("matched with ('s3', 'I')"),
-         ]
-    assert predictor.strains == ['s1', 's2', 's3']
-
-
-def test_set_output_files(predictor):
-    with pytest.raises(ValueError) as e:
-        predictor.set_output_files('', '', '', '', '')
-    assert 'No initial hmm file provided' in str(e)
-
-    with pytest.raises(ValueError) as e:
-        predictor.set_output_files('init', '', '', '', '')
-    assert 'No trained hmm file provided' in str(e)
-
-    with pytest.raises(ValueError) as e:
-        predictor.set_output_files('init', 'trained', 'pos', 'prob', '')
-    assert 'No alignment file provided' in str(e)
-
-    with pytest.raises(ValueError) as e:
-        predictor.set_output_files('init', 'trained', 'pos', 'prob', 'align')
-    assert '{prefix} not found in align' in str(e)
-
-    with pytest.raises(ValueError) as e:
-        predictor.set_output_files('init', 'trained', 'pos', 'prob',
-                                   'align{prefix}')
-    assert '{strain} not found in align{prefix}' in str(e)
-
-    with pytest.raises(ValueError) as e:
-        predictor.set_output_files('init', 'trained', 'pos', 'prob',
-                                   'align{prefix}{strain}')
-    assert '{chrom} not found in align{prefix}{strain}' in str(e)
-
-    predictor.prefix = 'pre'
-    predictor.set_output_files('init', 'trained', 'pos', 'prob',
-                               'align{prefix}{strain}{chrom}')
-    assert predictor.hmm_initial == 'init'
-    assert predictor.hmm_trained == 'trained'
-    assert predictor.positions == 'pos'
-    assert predictor.probabilities == 'prob'
-    assert predictor.alignment == 'alignpre{strain}{chrom}'
-
-    predictor.set_output_files('init', 'trained', '', 'prob',
-                               'align{prefix}{strain}{chrom}')
-    assert predictor.hmm_initial == 'init'
-    assert predictor.hmm_trained == 'trained'
-    assert predictor.positions is None
-    assert predictor.probabilities == 'prob'
-    assert predictor.alignment == 'alignpre{strain}{chrom}'
-
-    with pytest.raises(ValueError) as e:
-        predictor.config = {'paths': {'analysis': {'hmm_initial': 'init'}}}
-        predictor.set_output_files('', '', '', '', '')
-    assert 'No trained hmm file provided' in str(e)
-
-    with pytest.raises(ValueError) as e:
-        predictor.config = {'paths': {'analysis': {'hmm_initial': 'init',
-                                                   'hmm_trained': 'trained',
-                                                   'positions': 'pos'
-                                                   }}}
-        predictor.set_output_files('', '', '', '', '')
-    assert 'No probabilities file provided' in str(e)
-
-    with pytest.raises(ValueError) as e:
-        predictor.config = {'paths': {'analysis': {'hmm_initial': 'init',
-                                                   'hmm_trained': 'trained',
-                                                   'positions': 'pos',
-                                                   'probabilities': 'prob'
-                                                   }}}
-        predictor.set_output_files('', '', '', '', '')
-    assert 'No alignment file provided' in str(e)
-
-    predictor.config = {'paths': {'analysis': {
-        'hmm_initial': 'init',
-        'hmm_trained': 'trained',
-        'positions': 'pos',
-        'probabilities': 'prob',
-        'alignment': 'align{prefix}{strain}{chrom}'
-    }}}
-    predictor.set_output_files('', '', '', '', '')
-
-    assert predictor.hmm_initial == 'init'
-    assert predictor.hmm_trained == 'trained'
-    assert predictor.positions == 'pos'
-    assert predictor.probabilities == 'prob'
-    assert predictor.alignment == 'alignpre{strain}{chrom}'
-
-    predictor.config = {'paths': {'analysis': {
-        'hmm_initial': 'init',
-        'hmm_trained': 'trained',
-        'probabilities': 'prob',
-        'alignment': 'align{prefix}{strain}{chrom}'
-    }}}
-    predictor.set_output_files('', '', '', '', '')
-
-    assert predictor.hmm_initial == 'init'
-    assert predictor.hmm_trained == 'trained'
-    assert predictor.positions is None
-    assert predictor.probabilities == 'prob'
-    assert predictor.alignment == 'alignpre{strain}{chrom}'
-
-
-def test_validate_arguments(predictor):
-    predictor.chromosomes = 1
-    predictor.blocks = 1
-    predictor.prefix = 1
-    predictor.strains = 1
-    predictor.hmm_initial = 1
-    predictor.hmm_trained = 1
-    predictor.probabilities = 1
-    predictor.alignment = 1
-    predictor.known_states = 1
-    predictor.unknown_states = 1
-    predictor.threshold = 1
-    predictor.config = {
-        'analysis_params':
-        {'reference': {'name': 'S288c'},
-         'known_states': [
-             {'name': 'CBS432',
-              'expected_length': 1,
-              'expected_fraction': 0.01},
-             {'name': 'N_45',
-              'expected_length': 1,
-              'expected_fraction': 0.01},
-             {'name': 'DBVPG6304',
-              'expected_length': 1,
-              'expected_fraction': 0.01},
-             {'name': 'UWOPS91_917_1',
-              'expected_length': 1,
-              'expected_fraction': 0.01},
-         ],
-         'unknown_states': [{'name': 'unknown',
-                             'expected_length': 1,
-                             'expected_fraction': 0.01},
-                            ]
-         }
-    }
-
-    assert predictor.validate_arguments()
-
-    args = [
-        'chromosomes',
-        'blocks',
-        'prefix',
-        'strains',
-        'hmm_initial',
-        'hmm_trained',
-        'probabilities',
-        'alignment',
-        'known_states',
-        'unknown_states',
-        'threshold'
-    ]
-
-    for arg in args:
-        predictor.__dict__[arg] = None
-        with pytest.raises(ValueError) as e:
-            predictor.validate_arguments()
-        assert ('Failed to validate Predictor, '
-                f'required argument {arg} was unset') in str(e)
-        predictor.__dict__[arg] = 1
-
-    predictor.config = {
-        'analysis_params':
-        {'reference': {'name': 'S288c'},
-         'unknown_states': [{'name': 'unknown',
-                             'expected_length': 1,
-                             'expected_fraction': 0.01},
-                            ]
-         }
-    }
-    with pytest.raises(ValueError) as e:
-        predictor.validate_arguments()
-    assert 'Configuration did not provide any known_states' in str(e)
-
-    predictor.config = {
-        'analysis_params':
-        {'known_states': [
-             {'name': 'CBS432',
-              'expected_length': 1,
-              'expected_fraction': 0.01},
-             {'name': 'N_45',
-              'expected_length': 1,
-              'expected_fraction': 0.01},
-         ],
-         'unknown_states': [{'name': 'unknown',
-                             'expected_length': 1,
-                             'expected_fraction': 0.01},
-                            ]
-         }
-    }
-    with pytest.raises(ValueError) as e:
-        predictor.validate_arguments()
-    assert 'Configuration did not specify a reference strain' in str(e)
-
-    predictor.config = {
-        'analysis_params':
-        {'reference': {'name': 'S288c'},
-         'known_states': [
-             {'name': 'CBS432',
-              'expected_fraction': 0.01},
-             {'name': 'N_45',
-              'expected_length': 1,
-              'expected_fraction': 0.01},
-         ],
-         'unknown_states': [{'name': 'unknown',
-                             'expected_length': 1,
-                             'expected_fraction': 0.01},
-                            ]
-         }
-    }
-    with pytest.raises(ValueError) as e:
-        predictor.validate_arguments()
-    assert 'CBS432 did not provide an expected_length' in str(e)
-
-    predictor.config = {
-        'analysis_params':
-        {'reference': {'name': 'S288c'},
-         'known_states': [
-             {'name': 'CBS432',
-              'expected_length': 1,
-              'expected_fraction': 0.01},
-             {'name': 'N_45',
-              'expected_length': 1,
-              },
-         ],
-         'unknown_states': [{'name': 'unknown',
-                             'expected_length': 1,
-                             'expected_fraction': 0.01},
-                            ]
-         }
-    }
-    with pytest.raises(ValueError) as e:
-        predictor.validate_arguments()
-    assert 'N_45 did not provide an expected_fraction' in str(e)
-
-    predictor.config = {
-        'analysis_params':
-        {'reference': {'name': 'S288c'},
-         'known_states': [
-             {'name': 'CBS432',
-              'expected_length': 1,
-              'expected_fraction': 0.01},
-             {'name': 'N_45',
-              'expected_length': 1,
-              'expected_fraction': 0.01},
-         ],
-         'unknown_states': [{'name': 'unknown',
-                             'expected_fraction': 0.01},
-                            ]
-         }
-    }
-    with pytest.raises(ValueError) as e:
-        predictor.validate_arguments()
-    assert 'unknown did not provide an expected_length' in str(e)
-
-    predictor.config = {
-        'analysis_params':
-        {'reference': {'name': 'S288c'},
-         'known_states': [
-             {'name': 'CBS432',
-              'expected_length': 1,
-              'expected_fraction': 0.01},
-             {'name': 'N_45',
-              'expected_length': 1,
-              'expected_fraction': 0.01},
-         ],
-         'unknown_states': [{'name': 'unknown',
-                             'expected_length': 1,
-                             },
-                            ]
-         }
-    }
-    with pytest.raises(ValueError) as e:
-        predictor.validate_arguments()
-    assert 'unknown did not provide an expected_fraction' in str(e)
-
-
-def test_run_prediction_no_pos(predictor, mocker, capsys):
-    predictor.chromosomes = ['I', 'II']
-    predictor.blocks = 'blocks{state}.txt'
-    predictor.prefix = 'prefix'
-    predictor.strains = ['s1', 's2']
-    predictor.hmm_initial = 'hmm_initial.txt'
-    predictor.hmm_trained = 'hmm_trained.txt'
-    predictor.probabilities = 'probs.txt'
-    predictor.alignment = 'prefix_{strain}_chr{chrom}.maf'
-    predictor.known_states = 'S288c CBS432 N_45 DBVP UWOP'.split()
-    predictor.unknown_states = ['unknown']
-    predictor.states = predictor.known_states + predictor.unknown_states
-    predictor.threshold = 'viterbi'
-    predictor.config = {
+def test_run_prediction_no_pos(predictor, config, mocker, capsys):
+    config.chromosomes = ['I', 'II']
+    config.blocks = 'blocks{state}.txt'
+    config.prefix = 'prefix'
+    config.strains = ['s1', 's2']
+    config.hmm_initial = 'hmm_initial.txt'
+    config.hmm_trained = 'hmm_trained.txt'
+    config.probabilities = 'probs.txt'
+    config.positions = None
+    config.alignment = 'prefix_{strain}_chr{chrom}.maf'
+    config.known_states = 'S288c CBS432 N_45 DBVP UWOP'.split()
+    config.unknown_states = ['unknown']
+    config.states = config.known_states + config.unknown_states
+    config.threshold = 'viterbi'
+    config.config = {
         'analysis_params':
         {'reference': {'name': 'S288c'},
          'known_states': [
@@ -563,21 +126,21 @@ def test_run_prediction_no_pos(predictor, mocker, capsys):
         ]
 
 
-def test_run_prediction_full(predictor, mocker):
-    predictor.chromosomes = ['I', 'II']
-    predictor.blocks = 'blocks{state}.txt'
-    predictor.prefix = 'prefix'
-    predictor.strains = ['s1', 's2']
-    predictor.hmm_initial = 'hmm_initial.txt'
-    predictor.hmm_trained = 'hmm_trained.txt'
-    predictor.probabilities = 'probs.txt'
-    predictor.positions = 'pos.txt'
-    predictor.alignment = 'prefix_{strain}_chr{chrom}.maf'
-    predictor.known_states = 'S288c CBS432 N_45 DBVP UWOP'.split()
-    predictor.unknown_states = ['unknown']
-    predictor.states = predictor.known_states + predictor.unknown_states
-    predictor.threshold = 'viterbi'
-    predictor.config = {
+def test_run_prediction_full(predictor, config, mocker):
+    config.chromosomes = ['I', 'II']
+    config.blocks = 'blocks{state}.txt'
+    config.prefix = 'prefix'
+    config.strains = ['s1', 's2']
+    config.hmm_initial = 'hmm_initial.txt'
+    config.hmm_trained = 'hmm_trained.txt'
+    config.probabilities = 'probs.txt'
+    config.positions = 'pos.txt'
+    config.alignment = 'prefix_{strain}_chr{chrom}.maf'
+    config.known_states = 'S288c CBS432 N_45 DBVP UWOP'.split()
+    config.unknown_states = ['unknown']
+    config.states = config.known_states + config.unknown_states
+    config.threshold = 'viterbi'
+    config.config = {
         'analysis_params':
         {'reference': {'name': 'S288c'},
          'known_states': [
@@ -790,16 +353,14 @@ def test_run_prediction_full(predictor, mocker):
     ])
 
 
-def test_write_hmm_header(predictor):
-    predictor.known_states = []
-    predictor.unknown_states = []
+def test_write_hmm_header(predictor, config):
+    config.states = []
     predictor.emission_symbols = []
     writer = StringIO()
     predictor.write_hmm_header(writer)
     assert writer.getvalue() == 'strain\tchromosome\t\n'
 
-    predictor.known_states = ['s1', 's2']
-    predictor.unknown_states = ['u1']
+    config.states = ['s1', 's2', 'u1']
     predictor.emission_symbols = ['-', '+']
     writer = StringIO()
     predictor.write_hmm_header(writer)
@@ -893,13 +454,13 @@ def test_write_positions(predictor):
 
 def test_write_state_probs(predictor):
     output = StringIO()
-    predictor.states = []
+    predictor.config.states = []
     predictor.write_state_probs([{}], output, 'strain', 'I')
 
     assert output.getvalue() == 'strain\tI\t\n'
 
     output = StringIO()
-    predictor.states = list('abc')
+    predictor.config.states = list('abc')
     predictor.write_state_probs([
         [0, 0, 1],
         [1, 0, 0],
@@ -913,16 +474,16 @@ def test_write_state_probs(predictor):
          'c:1.00000,0.00000,1.00000\n')
 
 
-def test_process_path(predictor, hm):
+def test_process_path(predictor, config, hm):
     probs = hm.posterior_decoding()[0]
-    predictor.set_threshold(0.8)
-    predictor.states = 'N E'.split()
-    predictor.known_states = 'N E'.split()
+    config.set_threshold(0.8)
+    config.states = 'N E'.split()
+    config.known_states = 'N E'.split()
     path, probability = predictor.process_path(hm)
     assert (probability == probs).all()
     assert path == 'E E N E E N E E N N'.split()
 
-    predictor.set_threshold('viterbi')
+    config.set_threshold('viterbi')
     path, probability = predictor.process_path(hm)
 
     assert (probability == probs).all()
@@ -942,7 +503,7 @@ def test_convert_to_blocks(predictor):
 
 
 def help_test_convert_blocks(states, seq, predictor):
-    predictor.states = states
+    predictor.config.states = states
     blocks = predictor.convert_to_blocks(seq)
 
     nseq = np.array(seq, int)

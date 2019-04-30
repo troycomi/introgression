@@ -5,11 +5,17 @@ from pytest import approx
 from collections import defaultdict
 import random
 import numpy as np
+from analyze.introgression_configuration import Configuration
 
 
 @pytest.fixture
-def default_builder():
-    builder = predict.HMM_Builder({
+def config():
+    return Configuration()
+
+
+@pytest.fixture
+def default_builder(config):
+    config.config = {
         'analysis_params':
         {'reference': {'name': 'S288c'},
          'known_states': [
@@ -31,19 +37,20 @@ def default_builder():
                              'expected_fraction': 0.01},
                             ]
          }
-    })
+    }
+    builder = predict.HMM_Builder(config)
+    config.set_states()
     builder.set_expected_values()
     builder.update_expected_length(1e5)
     return builder
 
 
 @pytest.fixture
-def builder():
-    return predict.HMM_Builder(None)
+def builder(config):
+    return predict.HMM_Builder(config)
 
 
 def test_builder(builder):
-    assert builder.config is None
     assert builder.symbols == {
         'match': '+',
         'mismatch': '-',
@@ -55,9 +62,9 @@ def test_builder(builder):
     }
 
 
-def test_init(mocker):
+def test_init(mocker, config):
     mock_log = mocker.patch('analyze.predict.log')
-    predict.HMM_Builder(None)
+    predict.HMM_Builder(config)
     # no config, all warnings
     mock_log.warning.has_calls([
         mocker.call("Symbol for match unset in config, using default '+'"),
@@ -72,7 +79,8 @@ def test_init(mocker):
 
     # config, same warnings as above along with unused
     mock_log = mocker.patch('analyze.predict.log')
-    predict.HMM_Builder({'HMM_symbols': {'unused': 'X'}})
+    config.config = {'HMM_symbols': {'unused': 'X'}}
+    predict.HMM_Builder(config)
     mock_log.warning.has_calls([
         mocker.call("Unused symbol in configuration: unused -> 'X'"),
         mocker.call("Symbol for mismatch unset in config, using default '-'"),
@@ -86,7 +94,8 @@ def test_init(mocker):
 
     # overwrite
     mock_log = mocker.patch('analyze.predict.log')
-    predict.HMM_Builder({'HMM_symbols': {'masked': 'X'}})
+    config.config = {'HMM_symbols': {'masked': 'X'}}
+    predict.HMM_Builder(config)
     mock_log.debug.has_calls([
         mocker.call("Overwriting default symbol for masked with 'X'")
     ])
@@ -152,8 +161,8 @@ def symbol_test_helper(sequence, builder):
     assert weigh == approx(weighted_match_freqs)
 
 
-def test_set_expected_values(builder):
-    builder.config = {
+def test_set_expected_values(builder, config):
+    config.config = {
         'analysis_params':
         {'reference': {'name': 'S288c'},
          'known_states': [
@@ -176,6 +185,7 @@ def test_set_expected_values(builder):
                             ]
          }
     }
+    config.set_states()
     builder.set_expected_values()
     assert builder.expected_lengths == {
         'CBS432': 10,
@@ -196,8 +206,8 @@ def test_set_expected_values(builder):
     assert builder.ref_state == 'S288c'
 
 
-def test_update_expected_length(builder):
-    builder.config = {
+def test_update_expected_length(builder, config):
+    config.config = {
         'analysis_params':
         {'reference': {'name': 'S288c'},
          'known_states': [
@@ -220,6 +230,7 @@ def test_update_expected_length(builder):
                             ]
          }
     }
+    config.set_states()
     builder.set_expected_values()
 
     assert builder.expected_lengths == {

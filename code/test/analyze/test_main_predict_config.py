@@ -79,7 +79,10 @@ def test_block(runner, mocker):
                 {
                     'chromosomes': 'I II III'.split(),
                     'analysis_params': {
-                        'threshold': 'viterbi'
+                        'threshold': 'viterbi',
+                        'known_states': [
+                            {'name': 's1'},
+                            {'name': 's2'}],
                     },
                     'paths': {'analysis': {
                         'block_files': 'blocks_{state}.txt',
@@ -92,13 +95,14 @@ def test_block(runner, mocker):
 
         assert result.exit_code != 0
         assert str(result.exception) == \
-            'Unable to build prefix, no known states provided'
+            'Unable to find strains in config and no test_strains provided'
         assert mock_log.call_args_list == [
             mocker.call('Verbosity set to WARNING'),
             mocker.call('Read in 1 config file'),
             mocker.call('Found 3 chromosomes in config'),
             mocker.call("Threshold value is 'viterbi'"),
             mocker.call("Output blocks file is 'blocks_{state}.txt'"),
+            mocker.call("Prefix is 's1_s2'"),
         ]
 
 
@@ -357,7 +361,9 @@ def test_outputs(runner, mocker):
             mocker.call("Hmm_trained file is 'hmm_trained.txt'"),
             mocker.call("Positions file is 'None'"),
             mocker.call("Probabilities file is 'probs.txt.gz'"),
-            mocker.call("Alignment file is 's1_s2_{strain}_chr{chrom}.maf'")]
+            mocker.call("Alignment file is 's1_s2_{strain}_chr{chrom}.maf'"),
+            mocker.call("Only considering polymorphic sites")
+        ]
 
     mock_predict = mocker.patch.object(predict.Predictor, 'run_prediction')
     with runner.isolated_filesystem():
@@ -385,7 +391,7 @@ def test_outputs(runner, mocker):
         mock_log.reset_mock()
         result = runner.invoke(
             main.cli,
-            '--config config.yaml predict')
+            '--config config.yaml predict --only-poly-sites')
 
         assert result.exit_code == 0
         assert mock_log.call_args_list == mock_calls + [
@@ -393,5 +399,46 @@ def test_outputs(runner, mocker):
             mocker.call("Hmm_trained file is 'hmm_trained.txt'"),
             mocker.call("Positions file is 'pos.txt.gz'"),
             mocker.call("Probabilities file is 'probs.txt.gz'"),
-            mocker.call("Alignment file is 's1_s2_{strain}_chr{chrom}.maf'")]
+            mocker.call("Alignment file is 's1_s2_{strain}_chr{chrom}.maf'"),
+            mocker.call("Only considering polymorphic sites"),
+        ]
+        mock_predict.called_once_with(True)
+
+    mock_predict = mocker.patch.object(predict.Predictor, 'run_prediction')
+    with runner.isolated_filesystem():
+        with open('config.yaml', 'w') as f:
+            yaml.dump(
+                {
+                    'chromosomes': 'I II III'.split(),
+                    'strains': 'str1 str2 str1'.split(),
+                    'analysis_params': {
+                        'threshold': 'viterbi',
+                        'known_states': [
+                            {'name': 's1'},
+                            {'name': 's2'}],
+                    },
+                    'paths': {'analysis': {
+                        'block_files': 'blocks_{state}.txt',
+                        'hmm_initial': 'hmm_init.txt',
+                        'hmm_trained': 'hmm_trained.txt',
+                        'positions': 'pos.txt.gz',
+                        'probabilities': 'probs.txt.gz',
+                        'alignment': '{prefix}_{strain}_chr{chrom}.maf',
+                    }},
+                }, f)
+
+        mock_log.reset_mock()
+        result = runner.invoke(
+            main.cli,
+            '--config config.yaml predict --all-sites')
+
+        assert result.exit_code == 0
+        assert mock_log.call_args_list == mock_calls + [
+            mocker.call("Hmm_initial file is 'hmm_init.txt'"),
+            mocker.call("Hmm_trained file is 'hmm_trained.txt'"),
+            mocker.call("Positions file is 'pos.txt.gz'"),
+            mocker.call("Probabilities file is 'probs.txt.gz'"),
+            mocker.call("Alignment file is 's1_s2_{strain}_chr{chrom}.maf'"),
+            mocker.call("Considering all sites"),
+        ]
         mock_predict.called_once_with(True)

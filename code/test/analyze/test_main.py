@@ -15,8 +15,6 @@ def test_main_cli_configs(runner, mocker):
     assert result.exit_code == 0
 
     with runner.isolated_filesystem():
-        mock_clean = mocker.patch('analyze.main.config_utils.clean_config',
-                                  side_effect=lambda x: x)
         mock_echo = mocker.patch('analyze.main.click.echo_via_pager')
         mock_log_info = mocker.patch('analyze.main.log.info')
         mock_log_debug = mocker.patch('analyze.main.log.debug')
@@ -31,9 +29,6 @@ def test_main_cli_configs(runner, mocker):
             main.cli,
             '--config config1.yaml --config config2.yaml'.split())
         assert result.exit_code == 0
-        mock_clean.assert_called_with(
-            {'test': '23',
-             'test2': '34'})
 
         # since no subcommand was called
         mock_echo.assert_called_once()
@@ -43,8 +38,10 @@ def test_main_cli_configs(runner, mocker):
             mocker.call('Verbosity set to WARNING'),
             mocker.call('Read in 2 config files')
         ]
+        print(mock_log_debug.call_args_list[0][0])
         assert mock_log_debug.call_args_list == [
-            mocker.call('Cleaned config:\ntest - 23\ntest2 - 34\n')
+            mocker.call('Cleaned config:\nConfig file:\ntest - 23\n'
+                        'test2 - 34\n\nSettings:\nlog_file - None\n')
         ]
 
 

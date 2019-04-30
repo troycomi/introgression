@@ -7,8 +7,8 @@ from pathlib import Path
 
 
 '''
-Unit tests for the predict command of main.py when all parameters are
-provided by the config file
+Unit tests for the predict command of main.py when parameters are
+provided by the arguments primarily
 '''
 
 
@@ -47,6 +47,11 @@ def test_block(runner, mocker):
             yaml.dump(
                 {
                     'chromosomes': 'I II III'.split(),
+                    'analysis_params': {
+                        'known_states': [
+                            {'name': 's1'},
+                            {'name': 's2'}],
+                    },
                 }, f)
 
         result = runner.invoke(
@@ -57,13 +62,14 @@ def test_block(runner, mocker):
 
         assert result.exit_code != 0
         assert str(result.exception) == \
-            'Unable to build prefix, no known states provided'
+            'Unable to find strains in config and no test_strains provided'
         assert mock_log.call_args_list == [
             mocker.call('Verbosity set to WARNING'),
             mocker.call('Read in 1 config file'),
             mocker.call('Found 3 chromosomes in config'),
             mocker.call("Threshold value is 'viterbi'"),
             mocker.call("Output blocks file is 'blocks_{state}.txt'"),
+            mocker.call("Prefix is 's1_s2'"),
         ]
 
 
@@ -74,6 +80,11 @@ def test_prefix(runner, mocker):
             yaml.dump(
                 {
                     'chromosomes': 'I II III'.split(),
+                    'analysis_params': {
+                        'known_states': [
+                            {'name': 's1'},
+                            {'name': 's2'}],
+                    },
                 }, f)
 
         result = runner.invoke(
@@ -102,6 +113,11 @@ def test_test_strains(runner, mocker):
             yaml.dump(
                 {
                     'chromosomes': 'I II III'.split(),
+                    'analysis_params': {
+                        'known_states': [
+                            {'name': 's1'},
+                            {'name': 's2'}],
+                    },
                 }, f)
 
         Path('s1_chrI.fa').touch()
@@ -155,6 +171,11 @@ def test_outputs(runner, mocker):
                 {
                     'chromosomes': 'I II III'.split(),
                     'strains': 'str1 str2 str1'.split(),
+                    'analysis_params': {
+                        'known_states': [
+                            {'name': 's1'},
+                            {'name': 's2'}],
+                    },
                 }, f)
 
         mock_log.reset_mock()
@@ -176,6 +197,11 @@ def test_outputs(runner, mocker):
                 {
                     'chromosomes': 'I II III'.split(),
                     'strains': 'str1 str2 str1'.split(),
+                    'analysis_params': {
+                        'known_states': [
+                            {'name': 's1'},
+                            {'name': 's2'}],
+                    },
                 }, f)
 
         mock_log.reset_mock()
@@ -198,6 +224,11 @@ def test_outputs(runner, mocker):
                 {
                     'chromosomes': 'I II III'.split(),
                     'strains': 'str1 str2 str1'.split(),
+                    'analysis_params': {
+                        'known_states': [
+                            {'name': 's1'},
+                            {'name': 's2'}],
+                    },
                 }, f)
 
         mock_log.reset_mock()
@@ -247,7 +278,9 @@ def test_outputs(runner, mocker):
             mocker.call("Hmm_trained file is 'hmm_trained.txt'"),
             mocker.call("Positions file is 'None'"),
             mocker.call("Probabilities file is 'probs.txt.gz'"),
-            mocker.call("Alignment file is 's1_s2_{strain}_chr{chrom}.maf'")]
+            mocker.call("Alignment file is 's1_s2_{strain}_chr{chrom}.maf'"),
+            mocker.call("Only considering polymorphic sites"),
+        ]
 
     mock_predict = mocker.patch.object(predict.Predictor, 'run_prediction')
     with runner.isolated_filesystem():
@@ -281,7 +314,9 @@ def test_outputs(runner, mocker):
             mocker.call("Hmm_trained file is 'hmm_trained.txt'"),
             mocker.call("Positions file is 'pos.txt.gz'"),
             mocker.call("Probabilities file is 'probs.txt.gz'"),
-            mocker.call("Alignment file is 's1_s2_{strain}_chr{chrom}.maf'")]
+            mocker.call("Alignment file is 's1_s2_{strain}_chr{chrom}.maf'"),
+            mocker.call("Only considering polymorphic sites"),
+        ]
         mock_predict.called_once_with(True)
 
         mock_predict.reset_mock()

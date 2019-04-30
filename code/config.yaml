@@ -40,10 +40,12 @@ paths:
         suffix: .txt
 
     analysis:
-        analysis_base: __OUTPUT_ROOT__/analysis_chr1_test
+        analysis_base: __OUTPUT_ROOT__/analysisp4e2
         regions: __ANALYSIS_BASE__/regions/
         genes: __ANALYSIS_BASE__/genes/
-        block_files: __ANALYSIS_BASE__/blocks_{state}.txt
+        block_files: __ANALYSIS_BASE__/blocks_{state}_p4e2.txt
+        labeled_block_files: "__ANALYSIS_BASE__/../analysis_test/\
+            blocks_{state}__test_labeled.txt"
         hmm_initial: __ANALYSIS_BASE__/hmm_initial.txt
         hmm_trained: __ANALYSIS_BASE__/hmm_trained.txt
         probabilities: __ANALYSIS_BASE__/probabilities.txt.gz
@@ -66,9 +68,9 @@ paths:
         ldselect: __ROOT_INSTALL__/ldSelect/
         structure: __ROOT_INSTALL__/structure/
 
-chromosomes: ['I']
-# chromosomes: ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII',
-#               'IX', 'X', 'XI', 'XII', 'XIII', 'XIV', 'XV', 'XVI']
+# chromosomes: ['I']
+chromosomes: ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII',
+              'IX', 'X', 'XI', 'XII', 'XIII', 'XIV', 'XV', 'XVI']
 
 # can optionally list all strains to consider
 # if blank will glob with TEST_STRAINS paths

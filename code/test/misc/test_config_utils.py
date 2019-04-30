@@ -2,7 +2,7 @@ import pytest
 from misc.config_utils import (clean_config, clean_list,
                                merge_lists, merge_dicts,
                                get_nested, check_wildcards,
-                               get_states, validate)
+                               validate)
 
 
 def test_simple():
@@ -154,49 +154,6 @@ def test_check_wildcards(mocker):
 
     mock_log.assert_called_with('{test} not found in test.txt')
     assert '{test} not found in test.txt' in str(e)
-
-
-def test_get_states():
-    assert get_states({}) == ([], [])
-    assert get_states(
-        {
-            'analysis_params': {
-                'known_states': [
-                    {'name': 'k1'},
-                    {'name': 'k2'},
-                    {'name': 'k3'},
-                ],
-                'unknown_states': [
-                    {'name': 'u1'},
-                    {'name': 'u2'},
-                ]
-            }
-        }) == ('k1 k2 k3'.split(), 'u1 u2'.split())
-    assert get_states(
-        {
-            'analysis_params': {
-                'reference': {'name': 'ref'},
-                'unknown_states': [
-                    {'name': 'u1'},
-                    {'name': 'u2'},
-                ]
-            }
-        }) == ('ref'.split(), 'u1 u2'.split())
-    assert get_states(
-        {
-            'analysis_params': {
-                'reference': {'name': 'ref'},
-                'known_states': [
-                    {'name': 'k1'},
-                    {'name': 'k2'},
-                    {'name': 'k3'},
-                ],
-                'unknown_states': [
-                    {'name': 'u1'},
-                    {'name': 'u2'},
-                ]
-            }
-        }) == ('ref k1 k2 k3'.split(), 'u1 u2'.split())
 
 
 def test_validate(mocker):

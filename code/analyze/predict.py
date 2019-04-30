@@ -1,7 +1,5 @@
 import copy
 import gzip
-import glob
-import re
 import os
 import itertools
 import click
@@ -14,8 +12,7 @@ from typing import List, Dict, Tuple, TextIO
 from contextlib import ExitStack
 import logging as log
 from misc.read_fasta import read_fasta
-from misc.config_utils import (check_wildcards, validate,
-                               get_states, get_nested)
+from analyze.introgression_configuration import Configuration
 
 
 # TODO remove gp references for symbols. pass args or fold into object?
@@ -84,333 +81,89 @@ class Predictor():
     Predictor class
     Stores all variables needed to run an HMM prediction
     '''
-    def __init__(self, configuration: Dict):
+    def __init__(self, configuration: Configuration):
         self.config = configuration
-        self.known_states, self.unknown_states = get_states(self.config)
-        self.states = self.known_states + self.unknown_states
-        self.chromosomes = None
-        self.blocks = None
-        self.prefix = None
-        self.strains = None
-        self.hmm_initial = None
-        self.hmm_trained = None
-        self.positions = None
-        self.probabilities = None
-        self.alignment = None
-        self.threshold = None
-
-    def set_chromosomes(self):
-        '''
-        Gets the chromosome list from provided config, raising a ValueError
-        if undefined.
-        '''
-        self.chromosomes = validate(
-            self.config,
-            'chromosomes',
-            'No chromosomes specified in config file!')
-
-    def set_blocks_file(self, blocks: str = None):
-        '''
-        Set the block wildcard filename.  Checks for appropriate wildcards
-        '''
-        self.blocks = validate(
-            self.config,
-            'paths.analysis.block_files',
-            'No block file provided',
-            blocks)
-
-        check_wildcards(self.blocks, 'state')
-
-    def set_prefix(self, prefix: str = ''):
-        '''
-        Set prefix string of the predictor to the supplied value or
-        build it from the known states
-        '''
-        if prefix == '':
-            if self.known_states == []:
-                err = 'Unable to build prefix, no known states provided'
-                log.exception(err)
-                raise ValueError(err)
-
-            self.prefix = '_'.join(self.known_states)
-        else:
-            self.prefix = prefix
-
-    def set_threshold(self, threshold: str = None):
-        '''
-        Set the threshold. Checks if set and converts to float if possible
-        '''
-        self.threshold = validate(
-            self.config,
-            'analysis_params.threshold',
-            'No threshold provided',
-            threshold)
-        try:
-            self.threshold = float(self.threshold)
-        except ValueError:
-            if self.threshold != 'viterbi':
-                err = f'Unsupported threshold value: {self.threshold}'
-                log.exception(err)
-                raise ValueError(err)
-
-    def set_strains(self, test_strains: str = ''):
-        '''
-        build the strains to perform prediction on
-        '''
-        if test_strains == '':
-            test_strains = get_nested(self.config, 'paths.test_strains')
-        else:
-            # need to support list for test strains
-            test_strains = [test_strains]
-
-        if test_strains is not None:
-            for test_strain in test_strains:
-                check_wildcards(test_strain, 'strain,chrom')
-
-        self.find_strains(test_strains)
-
-    def find_strains(self, test_strains: List[str] = None):
-        '''
-        Helper method to get strains supplied in config, or from test_strains
-        '''
-        strains = get_nested(self.config, 'strains')
-        self.test_strains = test_strains
-
-        if strains is None:
-            if test_strains is None:
-                err = ('Unable to find strains in config and '
-                       'no test_strains provided')
-                log.exception(err)
-                raise ValueError(err)
-
-            # try to build strains from wildcards in test_strains
-            strains = {}
-            for test_strain in test_strains:
-                # find matching files
-                strain_glob = test_strain.format(
-                    strain='*',
-                    chrom='*')
-                log.info(f'searching for {strain_glob}')
-                for fname in glob.iglob(strain_glob):
-                    # extract wildcard matches
-                    match = re.match(
-                        test_strain.format(
-                            strain='(?P<strain>.*?)',
-                            chrom='(?P<chrom>[^_]*?)'
-                        ),
-                        fname)
-                    if match:
-                        log.debug(
-                            f'matched with {match.group("strain", "chrom")}')
-                        strain, chrom = match.group('strain', 'chrom')
-                        if strain not in strains:
-                            strains[strain] = set()
-                        strains[strain].add(chrom)
-
-            if len(strains) == 0:
-                err = ('Found no chromosome sequence files '
-                       f'in {test_strains}')
-                log.exception(err)
-                raise ValueError(err)
-
-            # check if requested chromosomes are within the list of chroms
-            chrom_set = set(self.chromosomes)
-            for strain, chroms in strains.items():
-                if not chrom_set.issubset(chroms):
-                    not_found = chrom_set.difference(chroms).pop()
-                    err = (f'Strain {strain} is missing chromosomes. '
-                           f'Unable to find chromosome \'{not_found}\'')
-                    log.exception(err)
-                    raise ValueError(err)
-
-            self.strains = list(sorted(strains.keys()))
-
-        else:  # strains set in config
-            self.strains = list(sorted(set(strains)))
-
-    def set_output_files(self,
-                         hmm_initial: str,
-                         hmm_trained: str,
-                         positions: str,
-                         probabilities: str,
-                         alignment: str):
-        '''
-        Set output files from provided values or config.
-        Raises value errors if a file is not provided.
-        Checks alignment for all wildcards and replaces prefix.
-        '''
-        self.hmm_initial = validate(self.config,
-                                    'paths.analysis.hmm_initial',
-                                    'No initial hmm file provided',
-                                    hmm_initial)
-
-        self.hmm_trained = validate(self.config,
-                                    'paths.analysis.hmm_trained',
-                                    'No trained hmm file provided',
-                                    hmm_trained)
-
-        if positions == '':
-            self.positions = get_nested(self.config,
-                                        'paths.analysis.positions')
-        else:
-            self.positions = positions
-
-        self.probabilities = validate(self.config,
-                                      'paths.analysis.probabilities',
-                                      'No probabilities file provided',
-                                      probabilities)
-
-        alignment = validate(self.config,
-                             'paths.analysis.alignment',
-                             'No alignment file provided',
-                             alignment)
-        check_wildcards(alignment, 'prefix,strain,chrom')
-        self.alignment = alignment.replace('{prefix}', self.prefix)
-
-    def validate_arguments(self):
-        '''
-        Check that all required instance variables are set to perform a
-        prediction run. Returns true if valid, raises value error otherwise
-        '''
-        args = [
-            'chromosomes',
-            'blocks',
-            'prefix',
-            'strains',
-            'hmm_initial',
-            'hmm_trained',
-            'probabilities',
-            'alignment',
-            'known_states',
-            'unknown_states',
-            'threshold',
-        ]
-        variables = self.__dict__
-        for arg in args:
-            if variables[arg] is None:
-                err = ('Failed to validate Predictor, required argument '
-                       f'{arg} was unset')
-                log.exception(err)
-                raise ValueError(err)
-
-        # check the parameters for each state are present
-        known_states = get_nested(self.config,
-                                  'analysis_params.known_states')
-        if known_states is None:
-            err = 'Configuration did not provide any known_states'
-            log.exception(err)
-            raise ValueError(err)
-
-        for s in known_states:
-            if 'expected_length' not in s:
-                err = f'{s["name"]} did not provide an expected_length'
-                log.exception(err)
-                raise ValueError(err)
-            if 'expected_fraction' not in s:
-                err = f'{s["name"]} did not provide an expected_fraction'
-                log.exception(err)
-                raise ValueError(err)
-
-        unknown_states = get_nested(self.config,
-                                    'analysis_params.unknown_states')
-        if unknown_states is not None:
-            for s in unknown_states:
-                if 'expected_length' not in s:
-                    err = f'{s["name"]} did not provide an expected_length'
-                    log.exception(err)
-                    raise ValueError(err)
-                if 'expected_fraction' not in s:
-                    err = f'{s["name"]} did not provide an expected_fraction'
-                    log.exception(err)
-                    raise ValueError(err)
-
-        reference = get_nested(self.config,
-                               'analysis_params.reference')
-        if reference is None:
-            err = f'Configuration did not specify a reference strain'
-            log.exception(err)
-            raise ValueError(err)
-
-        return True
 
     def run_prediction(self, only_poly_sites=True):
         '''
         Run prediction with this predictor object
         '''
-        self.validate_arguments()
+        self.config.validate_predict_arguments()
 
         hmm_builder = HMM_Builder(self.config)
         hmm_builder.set_expected_values()
         self.emission_symbols = \
-            hmm_builder.update_emission_symbols(len(self.known_states))
+            hmm_builder.update_emission_symbols(len(self.config.known_states))
 
-        with open(self.hmm_initial, 'w') as initial, \
-                open(self.hmm_trained, 'w') as trained, \
-                gzip.open(self.probabilities, 'wt') as probabilities, \
+        with open(self.config.hmm_initial, 'w') as initial, \
+                open(self.config.hmm_trained, 'w') as trained, \
+                gzip.open(self.config.probabilities, 'wt') as probabilities, \
                 ExitStack() as stack:
 
             self.write_hmm_header(initial)
             self.write_hmm_header(trained)
 
-            if self.positions is not None:
+            if self.config.positions is not None:
                 positions = stack.enter_context(
-                    gzip.open(self.positions, 'wt'))
+                    gzip.open(self.config.positions, 'wt'))
             else:
                 positions = None
 
             block_writers = {state:
                              stack.enter_context(
-                                 open(self.blocks.format(state=state), 'w'))
+                                 open(self.config.blocks.format(
+                                     state=state), 'w'))
                              for state in
-                             self.states}
+                             self.config.states}
             for writer in block_writers.values():
                 self.write_blocks_header(writer)
 
             counter = 0
-            total = len(self.chromosomes) * len(self.strains)
-            # logging to file
+            total = len(self.config.chromosomes) * len(self.config.strains)
             progress_bar = None
-            if get_nested(self.config, 'paths.log_file'):
+            if self.config.log_file:  # logging to file
                 progress_bar = stack.enter_context(
                     click.progressbar(
                         length=total,
                         label='Running prediction'))
 
-            for chrom in self.chromosomes:
-                for strain in self.strains:
+            for chrom in self.config.chromosomes:
+                for strain in self.config.strains:
                     counter += 1
                     log.info(f'working on: {strain} {chrom} '
                              f'({counter} of {total})')
 
                     # get sequences and encode
-                    alignment_file = self.alignment.format(
+                    alignment_file = self.config.alignment.format(
                         strain=strain, chrom=chrom)
 
                     if not os.path.exists(alignment_file):
                         log.info(f'skipping, file {alignment_file} not found')
-                        continue
-                    hmm_initial, hmm_trained, pos = hmm_builder.run_hmm(
-                        alignment_file, only_poly_sites)
+                    else:
+                        hmm_initial, hmm_trained, pos = hmm_builder.run_hmm(
+                            alignment_file, only_poly_sites)
 
-                    self.write_hmm(hmm_initial, initial, strain, chrom)
-                    self.write_hmm(hmm_trained, trained, strain, chrom)
+                        self.write_hmm(hmm_initial, initial, strain, chrom)
+                        self.write_hmm(hmm_trained, trained, strain, chrom)
 
-                    # process and threshold hmm result
-                    predicted_states, probs = self.process_path(hmm_trained)
-                    state_blocks = self.convert_to_blocks(predicted_states)
+                        # process and threshold hmm result
+                        predicted_states, probs = self.process_path(
+                            hmm_trained)
+                        state_blocks = self.convert_to_blocks(predicted_states)
 
-                    if positions is not None:
-                        self.write_positions(pos, positions, strain, chrom)
+                        if positions is not None:
+                            self.write_positions(pos, positions, strain, chrom)
 
-                    for state, block in state_blocks.items():
-                        self.write_blocks(block,
-                                          pos,
-                                          block_writers[state],
-                                          strain,
-                                          chrom,
-                                          state)
+                        for state, block in state_blocks.items():
+                            self.write_blocks(block,
+                                              pos,
+                                              block_writers[state],
+                                              strain,
+                                              chrom,
+                                              state)
 
-                    self.write_state_probs(probs, probabilities, strain, chrom)
+                        self.write_state_probs(probs, probabilities,
+                                               strain, chrom)
 
                     if progress_bar:
                         progress_bar.update(1)
@@ -424,7 +177,7 @@ class Predictor():
 
         writer.write('strain\tchromosome\t')
 
-        states = self.known_states + self.unknown_states
+        states = self.config.states
 
         writer.write('\t'.join(
             [f'init_{s}' for s in states] +  # initial
@@ -527,7 +280,7 @@ class Predictor():
         writer.write('\t'.join(
             [f'{state}:' +
              ','.join([f'{site[i]:.5f}' for site in probs])
-             for i, state in enumerate(self.states)]))
+             for i, state in enumerate(self.config.states)]))
 
         writer.write('\n')
 
@@ -540,17 +293,20 @@ class Predictor():
         probabilities = hmm.posterior_decoding()[0]
 
         # posterior
-        if type(self.threshold) is float:
+        if type(self.config.threshold) is float:
             path, path_probs = sim_process.get_max_path(probabilities,
                                                         hmm.hidden_states)
-            path_t = sim_process.threshold_predicted(path, path_probs,
-                                                     self.threshold,
-                                                     self.known_states[0])
+            path_t = sim_process.threshold_predicted(
+                path,
+                path_probs,
+                self.config.threshold,
+                self.config.known_states[0])
+
             return path_t, probabilities
 
         else:
             predicted = sim_predict.convert_predictions(hmm.viterbi(),
-                                                        self.states)
+                                                        self.config.states)
             return predicted, probabilities
 
     def convert_to_blocks(self,
@@ -563,7 +319,7 @@ class Predictor():
         '''
         # single individual state sequence
         blocks = {}
-        for state in self.states:
+        for state in self.config.states:
             blocks[state] = []
         prev_species = state_seq[0]
         block_start = 0
@@ -585,43 +341,11 @@ class Predictor():
 
 
 class HMM_Builder():
-    def __init__(self, configuration):
+    def __init__(self, configuration: Configuration):
         self.config = configuration
-        self.symbols = {
-            'match': '+',
-            'mismatch': '-',
-            'unknown': '?',
-            'unsequenced': 'n',
-            'gap': '-',
-            'unaligned': '?',
-            'masked': 'x'
-        }
-        config_symbols = get_nested(self.config, 'HMM_symbols')
-        if config_symbols is not None:
-            for k, v in config_symbols.items():
-                if k not in self.symbols:
-                    log.warning("Unused symbol in configuration: "
-                                f"{k} -> '{v}'")
-                else:
-                    self.symbols[k] = v
-                    log.debug(f"Overwriting default symbol for {k} with '{v}'")
-
-            for k, v in self.symbols.items():
-                if k not in config_symbols:
-                    log.warning(f'Symbol for {k} unset in config, '
-                                f"using default '{v}'")
-
-        else:
-            for k, v in self.symbols.items():
-                log.warning(f'Symbol for {k} unset in config, '
-                            f"using default '{v}'")
-
-        self.convergence = get_nested(self.config,
-                                      'analysis_params.convergence_threshold')
-        if self.convergence is None:
-            log.warning('No value set for convergence_threshold, using '
-                        'default of 0.001')
-            self.convergence = 0.001
+        self.config.set_HMM_symbols()
+        self.symbols = self.config.symbols
+        self.config.set_convergence()
 
     def update_emission_symbols(self, repeats: int):
         '''
@@ -671,29 +395,25 @@ class HMM_Builder():
         '''
         self.expected_lengths = {}
         self.expected_fractions = {}
-        known_states = get_nested(self.config,
-                                  'analysis_params.known_states')
+        known_states = self.config.get('analysis_params.known_states')
         for state in known_states:
             self.expected_lengths[state['name']] = state['expected_length']
             self.expected_fractions[state['name']] = state['expected_fraction']
 
-        unknown_states = get_nested(self.config,
-                                    'analysis_params.unknown_states')
+        unknown_states = self.config.get('analysis_params.unknown_states')
         for state in unknown_states:
             self.expected_lengths[state['name']] = state['expected_length']
             self.expected_fractions[state['name']] = state['expected_fraction']
 
-        reference = get_nested(self.config,
-                               'analysis_params.reference')
+        reference = self.config.get('analysis_params.reference')
         # expected fraction of reference is the remainder after other states
         # are specified
         self.expected_fractions[reference['name']] =\
             1 - sum(self.expected_fractions.values())
 
-        self.known_states, self.unknown_states = get_states(self.config)
-
-        self.ref_state = get_nested(self.config,
-                                    'analysis_params.reference.name')
+        self.ref_state = self.config.get('analysis_params.reference.name')
+        self.known_states = self.config.known_states
+        self.unknown_states = self.config.unknown_states
 
         # have to remove effect of unknown of these values for later
         self.ref_fraction = self.expected_fractions[self.ref_state] + \
@@ -805,7 +525,7 @@ class HMM_Builder():
         # of genome? maybe theoretically, but that number is a lot more
         # suspect
 
-        states = self.known_states + self.unknown_states
+        states = self.config.states
 
         fractions = np.array([self.expected_fractions[s] for s in states])
         lengths = 1/np.array([self.expected_lengths[s] for s in states])
@@ -868,7 +588,7 @@ class HMM_Builder():
         hmm.set_observations([coded_sequence])
 
         # Baum-Welch parameter estimation
-        hmm.train(self.convergence)
+        hmm.train(self.config.convergence)
 
         return hmm_init, hmm, positions
 
