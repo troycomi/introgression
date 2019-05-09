@@ -85,7 +85,7 @@ def test_block(runner, mocker):
                             {'name': 's2'}],
                     },
                     'paths': {'analysis': {
-                        'block_files': 'blocks_{state}.txt',
+                        'blocks': 'blocks_{state}.txt',
                     }},
                 }, f)
 
@@ -120,7 +120,7 @@ def test_prefix(runner, mocker):
                             {'name': 's2'}],
                     },
                     'paths': {'analysis': {
-                        'block_files': 'blocks_{state}.txt',
+                        'blocks': 'blocks_{state}.txt',
                     }},
                 }, f)
 
@@ -156,7 +156,7 @@ def test_strains(runner, mocker):
                             {'name': 's2'}],
                     },
                     'paths': {'analysis': {
-                        'block_files': 'blocks_{state}.txt',
+                        'blocks': 'blocks_{state}.txt',
                     }},
                 }, f)
 
@@ -194,7 +194,7 @@ def test_test_strains(runner, mocker):
                     },
                     'paths': {
                         'analysis': {
-                            'block_files': 'blocks_{state}.txt',
+                            'blocks': 'blocks_{state}.txt',
                         },
                         'test_strains': ['{strain}_chr{chrom}.fa']},
                 }, f)
@@ -253,7 +253,7 @@ def test_outputs(runner, mocker):
                             {'name': 's2'}],
                     },
                     'paths': {'analysis': {
-                        'block_files': 'blocks_{state}.txt',
+                        'blocks': 'blocks_{state}.txt',
                         'hmm_initial': 'hmm_init.txt',
                     }},
                 }, f)
@@ -281,7 +281,7 @@ def test_outputs(runner, mocker):
                             {'name': 's2'}],
                     },
                     'paths': {'analysis': {
-                        'block_files': 'blocks_{state}.txt',
+                        'blocks': 'blocks_{state}.txt',
                         'hmm_initial': 'hmm_init.txt',
                         'hmm_trained': 'hmm_trained.txt',
                     }},
@@ -310,7 +310,7 @@ def test_outputs(runner, mocker):
                             {'name': 's2'}],
                     },
                     'paths': {'analysis': {
-                        'block_files': 'blocks_{state}.txt',
+                        'blocks': 'blocks_{state}.txt',
                         'hmm_initial': 'hmm_init.txt',
                         'hmm_trained': 'hmm_trained.txt',
                         'positions': 'pos.txt.gz',
@@ -341,7 +341,7 @@ def test_outputs(runner, mocker):
                             {'name': 's2'}],
                     },
                     'paths': {'analysis': {
-                        'block_files': 'blocks_{state}.txt',
+                        'blocks': 'blocks_{state}.txt',
                         'hmm_initial': 'hmm_init.txt',
                         'hmm_trained': 'hmm_trained.txt',
                         'probabilities': 'probs.txt.gz',
@@ -381,7 +381,7 @@ def test_outputs(runner, mocker):
                             {'name': 's2'}],
                     },
                     'paths': {'analysis': {
-                        'block_files': 'blocks_{state}.txt',
+                        'blocks': 'blocks_{state}.txt',
                         'hmm_initial': 'hmm_init.txt',
                         'hmm_trained': 'hmm_trained.txt',
                         'positions': 'pos.txt.gz',
@@ -420,7 +420,7 @@ def test_outputs(runner, mocker):
                             {'name': 's2'}],
                     },
                     'paths': {'analysis': {
-                        'block_files': 'blocks_{state}.txt',
+                        'blocks': 'blocks_{state}.txt',
                         'hmm_initial': 'hmm_init.txt',
                         'hmm_trained': 'hmm_trained.txt',
                         'positions': 'pos.txt.gz',

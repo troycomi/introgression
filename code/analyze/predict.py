@@ -692,7 +692,7 @@ class HMM_Builder():
         isbase = sequences != self.symbols['gap']
 
         # make boolean for valid characters
-        isvalid = np.logical_and(sequences != self.symbols['gap'],
+        isvalid = np.logical_and(isbase,
                                  sequences != self.symbols['unsequenced'])
 
         # positions are where everything is valid, index where the reference is

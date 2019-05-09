@@ -36,8 +36,8 @@ def test_add_ids_empty(id_producer, mocker):
     id_producer.config.add_config({
         'chromosomes': ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX',
                         'X', 'XI', 'XII', 'XIII', 'XIV', 'XV', 'XVI'],
-        'paths': {'analysis': {'block_files': 'dir/blocks_{state}.txt',
-                               'labeled_block_files':
+        'paths': {'analysis': {'blocks': 'dir/blocks_{state}.txt',
+                               'labeled_blocks':
                                'dir/blocks_{state}_labeled.txt',
                                }}})
 
@@ -70,8 +70,8 @@ def test_add_ids(id_producer, mocker):
     id_producer.config.add_config({
         'chromosomes': ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX',
                         'X', 'XI', 'XII', 'XIII', 'XIV', 'XV', 'XVI'],
-        'paths': {'analysis': {'block_files': 'dir/blocks_{state}.txt',
-                               'labeled_block_files':
+        'paths': {'analysis': {'blocks': 'dir/blocks_{state}.txt',
+                               'labeled_blocks':
                                'dir/blocks_{state}_labeled.txt',
                                }}})
 

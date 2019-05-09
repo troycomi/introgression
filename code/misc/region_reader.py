@@ -3,7 +3,7 @@ import gzip
 import os
 import sys
 import numpy as np
-from typing import Dict, List, Tuple
+from typing import List, Tuple
 
 
 class Region_Reader():
@@ -42,6 +42,7 @@ class Region_Reader():
 
     def __exit__(self, type, value, traceback):
         self.region_reader.close()
+        return traceback is None
 
     def __repr__(self):
         return (

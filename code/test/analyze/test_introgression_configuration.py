@@ -78,6 +78,55 @@ def test_get_states(config):
     assert config.get_states() == ('ref k1 k2 k3'.split(), 'u1 u2'.split())
 
 
+def test_get_interval_states(config):
+    assert config.get_interval_states() == []
+
+    config.config = {
+            'analysis_params': {
+                'reference': {'name': 'ref'},
+                'known_states': [
+                    {'name': 'k1'},
+                    {'name': 'k2'},
+                    {'name': 'k3'},
+                ],
+            }
+        }
+    assert config.get_interval_states() == 'ref k1 k2 k3'.split()
+
+    config.config = {
+            'analysis_params': {
+                'known_states': [
+                    {'name': 'k1'},
+                    {'name': 'k2'},
+                    {'name': 'k3'},
+                ],
+            }
+        }
+    assert config.get_interval_states() == 'k1 k2 k3'.split()
+
+    config.config = {
+            'analysis_params': {
+                'reference': {'name': 'ref'},
+            }
+        }
+    assert config.get_interval_states() == 'ref'.split()
+
+    config.config = {
+            'analysis_params': {
+                'reference': {'name': 'ref',
+                              'interval_name': 'int_ref'},
+                'known_states': [
+                    {'name': 'k1',
+                     'interval_name': 'i1'},
+                    {'name': 'k2'},
+                    {'name': 'k3',
+                     'interval_name': 'i3'},
+                ],
+            }
+        }
+    assert config.get_interval_states() == 'int_ref i1 k2 i3'.split()
+
+
 def test_set_states(config):
     config.config = {
             'analysis_params':
@@ -150,12 +199,12 @@ def test_set_labeled_blocks_file(config):
     assert 'No labeled block file provided' in str(e)
 
     config.config = {'paths': {'analysis':
-                               {'labeled_block_files': 'blocks_file'}}}
+                               {'labeled_blocks': 'blocks_file'}}}
     with pytest.raises(ValueError) as e:
         config.set_labeled_blocks_file()
     assert '{state} not found in blocks_file' in str(e)
 
-    config.config = {'paths': {'analysis': {'labeled_block_files':
+    config.config = {'paths': {'analysis': {'labeled_blocks':
                                             'blocks_file{state}'}}}
     config.set_labeled_blocks_file()
     assert config.labeled_blocks == 'blocks_file{state}'
@@ -173,12 +222,12 @@ def test_set_blocks_file(config):
         config.set_blocks_file()
     assert 'No block file provided' in str(e)
 
-    config.config = {'paths': {'analysis': {'block_files': 'blocks_file'}}}
+    config.config = {'paths': {'analysis': {'blocks': 'blocks_file'}}}
     with pytest.raises(ValueError) as e:
         config.set_blocks_file()
     assert '{state} not found in blocks_file' in str(e)
 
-    config.config = {'paths': {'analysis': {'block_files':
+    config.config = {'paths': {'analysis': {'blocks':
                                             'blocks_file{state}'}}}
     config.set_blocks_file()
     assert config.blocks == 'blocks_file{state}'
@@ -321,7 +370,7 @@ def test_set_predict_files(config):
 
     with pytest.raises(ValueError) as e:
         config.set_predict_files('init', 'trained', 'pos', 'prob', 'align')
-    assert '{prefix} not found in align' in str(e)
+    assert '{strain} not found in align' in str(e)
 
     with pytest.raises(ValueError) as e:
         config.set_predict_files('init', 'trained', 'pos', 'prob',
@@ -378,3 +427,89 @@ def test_set_predict_files(config):
     assert config.positions == 'pos'
     assert config.probabilities == 'prob'
     assert config.alignment == 'alignpre{strain}{chrom}'
+
+
+def test_set_alignment(config):
+    config.set_alignment('align{strain}{chrom}')
+    assert config.alignment == 'align{strain}{chrom}'
+
+    with pytest.raises(AttributeError) as e:
+        config.set_alignment('align{prefix}{strain}{chrom}')
+    assert "'Configuration' object has no attribute 'prefix'" in str(e)
+
+    config.prefix = 'prefix'
+    config.set_alignment('align{prefix}{strain}{chrom}')
+    assert config.alignment == 'alignprefix{strain}{chrom}'
+
+
+def test_set_regions_file(config):
+    with pytest.raises(ValueError) as e:
+        config.set_regions_files()
+    assert 'No region file provided' in str(e)
+
+    with pytest.raises(ValueError) as e:
+        config.set_regions_files('region')
+    assert '{state} not found in region' in str(e)
+
+    with pytest.raises(ValueError) as e:
+        config.set_regions_files('region{state}')
+    assert 'No region index file provided' in str(e)
+
+    with pytest.raises(ValueError) as e:
+        config.set_regions_files('region{state}', 'index')
+    assert '{state} not found in index' in str(e)
+
+    config.set_regions_files('region{state}', 'index{state}')
+    assert config.regions == 'region{state}'
+    assert config.region_index == 'index{state}'
+
+    config.config = {'paths': {'analysis': {'regions': 'region{state}',
+                                            'region_index': 'index{state}',
+                                            }}}
+    config.set_regions_files()
+    assert config.regions == 'region{state}'
+    assert config.region_index == 'index{state}'
+
+    # args overwrite config
+    config.set_regions_files('reg{state}', 'ind{state}')
+    assert config.regions == 'reg{state}'
+    assert config.region_index == 'ind{state}'
+
+
+def test_set_quality_file(config):
+    with pytest.raises(ValueError) as e:
+        config.set_quality_file()
+    assert 'No quality block file provided' in str(e)
+
+    with pytest.raises(ValueError) as e:
+        config.set_quality_file('qual')
+    assert '{state} not found in qual' in str(e)
+
+    config.set_quality_file('qual{state}')
+    assert config.quality_blocks == 'qual{state}'
+
+    config.config = {'paths': {'analysis': {'quality': 'qua{state}'}}}
+    config.set_quality_file()
+    assert config.quality_blocks == 'qua{state}'
+
+
+def test_set_masked_file(config):
+    with pytest.raises(ValueError) as e:
+        config.set_masked_file()
+    assert 'No masked interval file provided' in str(e)
+
+    with pytest.raises(ValueError) as e:
+        config.set_masked_file('mask')
+    assert '{strain} not found in mask' in str(e)
+
+    with pytest.raises(ValueError) as e:
+        config.set_masked_file('mask{strain}')
+    assert '{chrom} not found in mask{strain}' in str(e)
+
+    config.set_masked_file('mask{strain}{chrom}')
+    assert config.masks == 'mask{strain}{chrom}'
+
+    config.config = {'paths': {'analysis':
+                               {'masked_intervals': 'msk{strain}{chrom}'}}}
+    config.set_masked_file()
+    assert config.masks == 'msk{strain}{chrom}'

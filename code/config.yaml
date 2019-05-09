@@ -41,17 +41,18 @@ paths:
 
     analysis:
         analysis_base: __OUTPUT_ROOT__/analysisp4e2
-        regions: __ANALYSIS_BASE__/regions/
+        regions: __ANALYSIS_BASE__/regions/{state}.fa.gz
+        region_index: __ANALYSIS_BASE__/regions/{state}.pkl
         genes: __ANALYSIS_BASE__/genes/
-        block_files: __ANALYSIS_BASE__/blocks_{state}_p4e2.txt
-        labeled_block_files: "__ANALYSIS_BASE__/../analysis_test/\
-            blocks_{state}__test_labeled.txt"
+        blocks: __ANALYSIS_BASE__/blocks_{state}_p4e2.txt
+        labeled_blocks: "__ANALYSIS_BASE__/blocks_{state}_p4e2_labeled.txt"
+        quality: __ANALYSIS_BASE__/block_{state}_quality.txt
         hmm_initial: __ANALYSIS_BASE__/hmm_initial.txt
         hmm_trained: __ANALYSIS_BASE__/hmm_trained.txt
         probabilities: __ANALYSIS_BASE__/probabilities.txt.gz
         alignment: __ALIGNMENTS__/{prefix}_{strain}_chr{chrom}_mafft.maf
-        # positions are optional
         positions: __ANALYSIS_BASE__/positions.txt.gz
+        masked_intervals: __MASKS__/{strain}_chr{chrom}_intervals.txt
 
     # software install locations
     software:
@@ -87,10 +88,12 @@ analysis_params:
     input_root: /tigress/AKEY/akey_vol2/aclark4/nobackup
 
     # master known state, prepeded to list of known states
+    # TODO need to use the other name for S288c!
     reference:
         name: S288c
         base_dir: __INPUT_ROOT__/100_genomes/genomes/S288c_SGD-R64/
         gene_bank_dir: __INPUT_ROOT__/S288c/
+        interval_name: S288c_SGD-R64  # if different than name
 
     known_states:
         - name: CBS432

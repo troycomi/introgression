@@ -4,6 +4,7 @@ import logging as log
 import analyze.predict
 from analyze.introgression_configuration import Configuration
 from analyze.id_regions import ID_producer
+from analyze.summarize_region_quality import Summarizer
 
 
 # TODO also check for snakemake object?
@@ -136,7 +137,6 @@ def predict(ctx,
     predictor.run_prediction(only_poly_sites)
 
 
-# accept multiple states and pass as list
 @cli.command()
 @click.option('--blocks', default='', help='Block file location with {state}')
 @click.option('--labeled', default='', help='Block file location with {state}')
@@ -159,6 +159,68 @@ def id_regions(ctx, blocks, labeled, state):
 
     id_producer = ID_producer(config)
     id_producer.add_ids()
+
+
+# TODO add in summarize region quality here!
+@cli.command()
+@click.option('--state', multiple=True, help='States to summarize')
+@click.option('--labeled', default='',
+              help='Labeled block file with {state} '
+              'Created during id_regions')
+@click.option('--masks', default='',
+              help='Mask file with {strain} and {chrom}')
+@click.option('--alignment', default='',
+              help='Alignment file with {prefix} [optional], '
+              '{strain} and {chrom}')
+@click.option('--positions', default='',
+              help='Position file created during prediction')
+@click.option('--quality', default='',
+              help='Output quality file with {state}')
+@click.option('--region', default='',
+              help='Output region file with {state}, gzipped')
+@click.option('--region-index', default='',
+              help='Output region index file with {state}, pickled')
+@click.pass_context
+def summarize_regions(ctx,
+                      state,
+                      labeled,
+                      quality,
+                      masks,
+                      alignment,
+                      positions,
+                      region,
+                      region_index):
+    config = ctx.obj
+
+    config.set_states()
+
+    config.set_chromosomes()
+    log.info(f'Found {len(config.chromosomes)} chromosomes in config')
+
+    config.set_labeled_blocks_file(labeled)
+    log.info(f'Labeled blocks file is \'{config.labeled_blocks}\'')
+
+    config.set_quality_file(quality)
+    log.info(f'Quality file is \'{config.quality_blocks}\'')
+
+    config.set_masked_file(masks)
+    log.info(f'Mask file is \'{config.masks}\'')
+
+    config.set_prefix()
+    config.set_alignment(alignment)
+    log.info(f'Alignment file is \'{config.alignment}\'')
+
+    config.set_positions(positions)
+    log.info(f'Positions file is \'{config.positions}\'')
+
+    config.set_regions_files(region, region_index)
+    log.info(f'Region file is \'{config.regions}\'')
+    log.info(f'Region index file is \'{config.region_index}\'')
+
+    config.set_HMM_symbols()
+
+    summarizer = Summarizer(config)
+    summarizer.run(list(state))
 
 
 if __name__ == '__main__':

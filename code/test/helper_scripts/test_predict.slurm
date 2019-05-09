@@ -12,7 +12,6 @@ conda activate introgression3
 
 introgression \
     --config $config \
-    -vv \
     --log-file test.log \
+    -vv \
     predict
-        

@@ -5,11 +5,15 @@
 #SBATCH -n 1
 #SBATCH -o "/tigress/tcomi/aclark4_temp/results/summarize_%A_%a"
 
-export PYTHONPATH=/home/tcomi/projects/aclark4_introgression/code/
-
 module load anaconda3
 conda activate introgression3
 
-ARGS="_test .001 viterbi 10000 .025 10000 .025 10000 .025 10000 .025 unknown 1000 .01"
+config=/home/tcomi/projects/aclark4_introgression/code/config.yaml
 
-python ${PYTHONPATH}analyze/summarize_region_quality_main.py $SLURM_ARRAY_TASK_ID $ARGS
+introgression \
+    --config $config \
+    --log-file test.log \
+    -vvvv \
+    summarize-regions \
+        --state N_45 \
+        --state CBS432

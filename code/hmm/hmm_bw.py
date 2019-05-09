@@ -344,6 +344,7 @@ class HMM:
                 emissions[:, None, :]
 
             probabilities[0, :] = np.log(self.initial_p) + emissions[0]
+
         states[0, :] = -1
 
         for i in range(1, len(emissions)):

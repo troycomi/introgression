@@ -87,7 +87,7 @@ def test_block_file(runner, mocker):
                             {'name': 's2'}],
                     },
                     'paths': {'analysis': {
-                        'block_files': 'block_{state}.txt',
+                        'blocks': 'block_{state}.txt',
                     }}
                 }, f)
 
@@ -119,8 +119,8 @@ def test_labeled_block_file(runner, mocker):
                             {'name': 's2'}],
                     },
                     'paths': {'analysis': {
-                        'block_files': 'block_{state}.txt',
-                        'labeled_block_files': 'labeled_block_{state}.txt',
+                        'blocks': 'block_{state}.txt',
+                        'labeled_blocks': 'labeled_block_{state}.txt',
                     }}
                 }, f)
 
