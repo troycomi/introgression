@@ -18,6 +18,7 @@ from misc import read_table
 from misc.region_reader import Region_Reader
 
 
+# TODO make this, filter 2 and thresholds a single method then refactor
 def main() -> None:
     '''
     Perform first step of filtering

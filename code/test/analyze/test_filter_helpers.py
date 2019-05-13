@@ -1,6 +1,5 @@
 from analyze import filter_helpers
 from io import StringIO
-import numpy as np
 from misc import read_fasta
 import os
 import warnings
