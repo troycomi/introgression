@@ -1,24 +1,12 @@
 # counts total amount of sites introgressed on each chromosome
 
-import re
-import sys
-import os
-import math
-import gzip
-import itertools
-sys.path.insert(0, '..')
 import global_params as gp
-sys.path.insert(0, '../align/')
-import align_helpers
-sys.path.insert(0, '../misc/')
-import overlap
-import read_table
-import read_fasta
-import write_fasta
-import mystats
+from misc import read_table
 
 
-chrm_sizes = [230218, 813184, 316620, 1531933, 576874, 270161, 1090940, 562643, 439888, 745751, 666816, 1078177, 924431, 784333, 1091291, 948066]
+chrm_sizes = [230218, 813184, 316620, 1531933, 576874,
+              270161, 1090940, 562643, 439888, 745751,
+              666816, 1078177, 924431, 784333, 1091291, 948066]
 
 tag = 'u3_i.001_tv_l1000_f.01'
 
@@ -30,13 +18,13 @@ d, labels = read_table.read_table_rows(fn_regions, '\t')
 for region in d:
     chrm = d[region]['chromosome']
     strain = d[region]['strain']
-    regions_by_chrm[chrm].append((strain, \
-                                  int(d[region]['start']), \
+    regions_by_chrm[chrm].append((strain,
+                                  int(d[region]['start']),
                                   int(d[region]['end'])))
 
 hist = {}
 for chrm in gp.chrms:
-    print chrm
+    print(chrm)
     chrm_size = chrm_sizes[gp.chrms.index(chrm)]
     x = [0 for i in range(chrm_size)]
     for ri in range(len(regions_by_chrm[chrm])):
@@ -56,7 +44,7 @@ f.write('chromosome\tat_least_one\tat_least_one_frac\tchromosome_size\thist\n')
 total = 0
 for chrm in gp.chrms:
     f.write(chrm + '\t')
-    chrm_size = chrm_sizes[gp.chrms.index(chrm)]    
+    chrm_size = chrm_sizes[gp.chrms.index(chrm)]
     at_least_one = chrm_size - hist[chrm][0]
     total += at_least_one
     f.write(str(at_least_one) + '\t')

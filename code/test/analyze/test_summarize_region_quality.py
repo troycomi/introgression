@@ -23,7 +23,7 @@ def test_states_to_process(summarizer, mocker):
          'unknown_states': [{'name': 'unknown'}]
          }
     })
-    summarizer.config.set_states()
+    summarizer.config.set('states')
 
     assert summarizer.states_to_process() == \
         (0, 'S288c CBS432 N_45 unknown'.split())
@@ -57,16 +57,14 @@ def test_run(summarizer, mocker):
          'unknown_states': [{'name': 'unknown'}]
          }
     })
-    summarizer.config.set_states()
-    summarizer.config.set_HMM_symbols()
-    summarizer.config.set_positions('positions.txt.gz')
-    summarizer.config.set_labeled_blocks_file(
-        'dir/tag/blocks_{state}_labeled.txt')
-    summarizer.config.set_quality_file('dir/tag/blocks_{state}_quality.txt')
-    summarizer.config.set_alignment('dir/tag/blocks_{chrom}_{strain}.txt')
-    summarizer.config.set_regions_files('dir/tag/regions/{state}.fa.gz',
-                                        'dir/tag/regions/{state}.pkl')
-    summarizer.config.set_masked_file('dir/masked/{strain}_chr{chrom}.txt')
+    summarizer.config.set('symbols', 'states',
+                          positions='positions.txt.gz',
+                          labeled_blocks='dir/tag/blocks_{state}_labeled.txt',
+                          quality_blocks='dir/tag/blocks_{state}_quality.txt',
+                          alignment='dir/tag/blocks_{chrom}_{strain}.txt',
+                          regions='dir/tag/regions/{state}.fa.gz',
+                          region_index='dir/tag/regions/{state}.pkl',
+                          masks='dir/masked/{strain}_chr{chrom}.txt')
     summarizer.config.chromosomes = ['I', 'II']
     summarizer.validate_arguments()
     # for region database
@@ -246,16 +244,15 @@ def test_run_all_states(summarizer, mocker):
          'unknown_states': [{'name': 'unknown'}]
          }
     })
-    summarizer.config.set_states()
-    summarizer.config.set_HMM_symbols()
-    summarizer.config.set_positions('positions.txt.gz')
-    summarizer.config.set_labeled_blocks_file(
-        'dir/tag/blocks_{state}_labeled.txt')
-    summarizer.config.set_quality_file('dir/tag/blocks_{state}_quality.txt')
-    summarizer.config.set_alignment('dir/tag/blocks_{chrom}_{strain}.txt')
-    summarizer.config.set_regions_files('dir/tag/regions/{state}.fa.gz',
-                                        'dir/tag/regions/{state}.pkl')
-    summarizer.config.set_masked_file('dir/masked/{strain}_chr{chrom}.txt')
+    summarizer.config.set('states',
+                          'symbols',
+                          positions='positions.txt.gz',
+                          labeled_blocks='dir/tag/blocks_{state}_labeled.txt',
+                          quality_blocks='dir/tag/blocks_{state}_quality.txt',
+                          alignment='dir/tag/blocks_{chrom}_{strain}.txt',
+                          regions='dir/tag/regions/{state}.fa.gz',
+                          region_index='dir/tag/regions/{state}.pkl',
+                          masks='dir/masked/{strain}_chr{chrom}.txt')
     summarizer.config.chromosomes = ['I', 'II']
     assert summarizer.validate_arguments()
 

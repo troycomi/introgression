@@ -1,10 +1,7 @@
-import sys
-import os
-sys.path.insert(0, '..')
 import global_params as gp
-sys.path.insert(0, '../misc/')
-import seq_functions
-import read_fasta
+from misc import seq_functions
+from misc import read_fasta
+
 
 def get_aligned_genes(fn, strains):
     headers, seqs = read_fasta.read_fasta(fn)
@@ -44,7 +41,6 @@ def ambiguous(gene, ref_start, ref_end, coords, orfs):
 
 
 def count_coding(seq_master, seq_ref, seq_strain, start, end):
-    
     if not seq_master.startswith('ATG'):
         seq_master = seq_functions.reverse_complement(seq_master)
         assert seq_master.startswith('ATG'), seq_master
@@ -87,16 +83,15 @@ def count_coding(seq_master, seq_ref, seq_strain, start, end):
 
 
 def count_coding_with_gaps(seq_master, seq_ref, seq_strain, start, end):
-
-    print seq_master
-    print seq_ref
-    print seq_strain
-    print start, end
+    print(seq_master)
+    print(seq_ref)
+    print(seq_strain)
+    print(start, end)
 
     seq_master = seq_master.upper()
     seq_ref = seq_ref.upper()
     seq_strain = seq_strain.upper()
-    
+
     ind_master = 0
     ind_ref = 0
     ind_strain = 0
@@ -177,10 +172,9 @@ def count_coding_with_gaps(seq_master, seq_ref, seq_strain, start, end):
         if codon_strain != codon_master:
 
             aa_master = seq_functions.codon_table.get(codon_master)
-            aa_ref = seq_functions.codon_table.get(codon_ref)
             aa_strain = seq_functions.codon_table.get(codon_strain)
 
-            if aa_master == None or aa_strain == None:
+            if aa_master is None or aa_strain is None:
                 if gaps_master > gaps_strain:
                     t_insert += gaps_master - gaps_strain
                 else:
@@ -212,10 +206,9 @@ def count_coding_with_gaps(seq_master, seq_ref, seq_strain, start, end):
                 else:
                     t_non_ref += 1
 
-    print t_syn, t_non, t_syn_ref, t_non_ref
-    print t_insert, t_delete, t_insert_ref, t_delete_ref
-    print frameshift
+    print(t_syn, t_non, t_syn_ref, t_non_ref)
+    print(t_insert, t_delete, t_insert_ref, t_delete_ref)
+    print(frameshift)
     return t_syn, t_non, t_syn_ref, t_non_ref, \
         t_insert/3.0, t_delete/3.0, t_insert_ref/3.0, t_delete_ref/3.0, \
         gene_delete, gene_delete_ref, frameshift_count
-

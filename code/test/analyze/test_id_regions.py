@@ -18,7 +18,7 @@ def id_producer():
          'unknown_states': [{'name': 'unknown'}]
          }
     })
-    config.set_states()
+    config.set('states')
     result = id_regions.ID_producer(config)
     return result
 
@@ -42,9 +42,9 @@ def test_add_ids_empty(id_producer, mocker):
                                }}})
 
     id_producer.config.states = 'ref state1 unknown'.split()
-    id_producer.config.set_blocks_file()
-    id_producer.config.set_labeled_blocks_file()
-    id_producer.config.set_chromosomes()
+    id_producer.config.set(blocks=None,
+                           labeled_blocks=None,
+                           chromosomes=None)
 
     mocker.patch('analyze.id_regions.read_blocks',
                  return_value={})
@@ -76,9 +76,9 @@ def test_add_ids(id_producer, mocker):
                                }}})
 
     id_producer.config.states = 'ref state1 unknown'.split()
-    id_producer.config.set_blocks_file()
-    id_producer.config.set_labeled_blocks_file()
-    id_producer.config.set_chromosomes()
+    id_producer.config.set(blocks=None,
+                           labeled_blocks=None,
+                           chromosomes=None)
 
     regions = [
         {

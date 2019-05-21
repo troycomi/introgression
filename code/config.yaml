@@ -41,18 +41,25 @@ paths:
 
     analysis:
         analysis_base: __OUTPUT_ROOT__/analysisp4e2
-        regions: __ANALYSIS_BASE__/regions/{state}.fa.gz
-        region_index: __ANALYSIS_BASE__/regions/{state}.pkl
+        regions: __OUTPUT_ROOT__/analysis_test/regions/{state}.fa.gz
+        region_index: __OUTPUT_ROOT__/analysis_test/regions/{state}.pkl
         genes: __ANALYSIS_BASE__/genes/
-        blocks: __ANALYSIS_BASE__/blocks_{state}_p4e2.txt
-        labeled_blocks: "__ANALYSIS_BASE__/blocks_{state}_p4e2_labeled.txt"
-        quality: __ANALYSIS_BASE__/block_{state}_quality.txt
+        blocks: __ANALYSIS_BASE__/blocks_{state}.txt
+        labeled_blocks: __ANALYSIS_BASE__/blocks_{state}_p4e2_labeled.txt
+        quality_blocks: __ANALYSIS_BASE__/blocks_{state}_p4e2_quality.txt
         hmm_initial: __ANALYSIS_BASE__/hmm_initial.txt
         hmm_trained: __ANALYSIS_BASE__/hmm_trained.txt
         probabilities: __ANALYSIS_BASE__/probabilities.txt.gz
         alignment: __ALIGNMENTS__/{prefix}_{strain}_chr{chrom}_mafft.maf
         positions: __ANALYSIS_BASE__/positions.txt.gz
         masked_intervals: __MASKS__/{strain}_chr{chrom}_intervals.txt
+        introgressed: __ANALYSIS_BASE__/blocks_{state}_filter1.txt
+        introgressed_intermediate: "__ANALYSIS_BASE__/\
+                                    blocks_{state}_filter1inter.txt"
+        ambiguous: __ANALYSIS_BASE__/blocks_{state}_filter2.txt
+        ambiguous_intermediate: "__ANALYSIS_BASE__/\
+                                 blocks_{state}_filter2inter.txt"
+        filter_sweep: __ANALYSIS_BASE__/filter2_thresholds.txt
 
     # software install locations
     software:
@@ -69,7 +76,6 @@ paths:
         ldselect: __ROOT_INSTALL__/ldSelect/
         structure: __ROOT_INSTALL__/structure/
 
-# chromosomes: ['I']
 chromosomes: ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII',
               'IX', 'X', 'XI', 'XII', 'XIII', 'XIV', 'XV', 'XVI']
 
@@ -83,12 +89,12 @@ chromosomes: ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII',
 analysis_params:
     tag: p2e4
     convergence_threshold: 0.001
-    # threshold can be 'viterbi' or a float to threshold probabilities
+    # threshold can be 'viterbi' or a float to threshold HMM probabilities
     threshold: viterbi
     input_root: /tigress/AKEY/akey_vol2/aclark4/nobackup
+    filter_threshold: 0.98
 
     # master known state, prepeded to list of known states
-    # TODO need to use the other name for S288c!
     reference:
         name: S288c
         base_dir: __INPUT_ROOT__/100_genomes/genomes/S288c_SGD-R64/

@@ -11,6 +11,53 @@ class Configuration():
         self.config = {}
         self.log_file = None
 
+        # these are very regular variables with state as a wildcard
+        state_files = [
+            'blocks',
+            'labeled_blocks',
+            'quality_blocks',
+            'introgressed',
+            'introgressed_intermediate',
+            'ambiguous',
+            'ambiguous_intermediate',
+            'regions',
+            'region_index',
+        ]
+        # no wildcards, non nullable
+        nonwild_files = [
+            'hmm_initial',
+            'hmm_trained',
+            'positions',
+            'probabilities',
+        ]
+        var_list = [
+            Variable('chromosomes'),
+            Threshold_Variable(),
+            Convergence_Variable(),
+            Symbols_Variable(),
+            Filter_Threshold_Variable(),
+            Variable('log_file', 'paths.log_file', nullable=True),
+            Variable('filter_sweep', 'paths.analysis.filter_sweep',
+                     nullable=True),
+            Variable('masks', 'paths.analysis.masked_intervals',
+                     wildcards='strain,chrom'),
+        ] + [
+            Variable(n, f'paths.analysis.{n}', wildcards='state')
+            for n in state_files
+        ] + [
+            Variable(n, f'paths.analysis.{n}')
+            for n in nonwild_files
+        ]
+
+        self.variables = {v.name: v for v in var_list}
+        # these require too much state from configuration to split out
+        self.other_parsers = {
+            'states': self._set_states,
+            'prefix': self._set_prefix,
+            'strains': self._set_strains,
+            'alignment': self._set_alignment
+        }
+
     def add_config(self, configuration: Dict):
         '''
         merge the provided configuration dictionary with this object.
@@ -18,6 +65,25 @@ class Configuration():
         '''
         self.config = clean_config(
             merge_dicts(self.config, configuration))
+
+    def set(self, *args, **kwargs):
+        '''
+        Set the supplied variable to the value provided.
+        If just a name is provided, set the value with a value of None
+        '''
+        kwargs.update({a: None for a in args})
+        for key, value in kwargs.items():
+            if key in self.variables:
+                variable = self.variables[key]
+                self.__dict__[key] = variable.parse(value, self.config)
+
+            elif key in self.other_parsers:
+                self.other_parsers[key](value)
+
+            else:
+                err = f'Unknown variable to set: {key}'
+                log.exception(err)
+                raise ValueError(err)
 
     def get_states(self) -> Tuple[List, List]:
         '''
@@ -66,7 +132,7 @@ class Configuration():
                 else s['name']
                 for s in ref + known]
 
-    def set_states(self, states: List[str] = None):
+    def _set_states(self, states: List[str] = None):
         '''
         Set the states for which to perform region naming
         '''
@@ -83,101 +149,12 @@ class Configuration():
             log.exception(err)
             raise ValueError(err)
 
-    def set_log_file(self, log_file: str = ''):
-        '''
-        sets log file based on provided value or config
-        '''
-        if log_file == '':
-            self.log_file = get_nested(self.config, 'paths.log_file')
-        else:
-            self.log_file = log_file
-
-    def set_chromosomes(self):
-        '''
-        Gets the chromosome list from config, raising a ValueError
-        if undefined.
-        '''
-        self.chromosomes = validate(
-            self.config,
-            'chromosomes',
-            'No chromosomes specified in config file!')
-
-    def set_threshold(self, threshold: str = None):
-        '''
-        Set the threshold. Checks if set and converts to float if possible.
-        Failing float casting, will store a string if it is 'viterbi',
-        otherwise throws a ValueError
-        '''
-        self.threshold = validate(
-            self.config,
-            'analysis_params.threshold',
-            'No threshold provided',
-            threshold)
-        try:
-            self.threshold = float(self.threshold)
-        except ValueError:
-            if self.threshold != 'viterbi':
-                err = f'Unsupported threshold value: {self.threshold}'
-                log.exception(err)
-                raise ValueError(err)
-
-    def set_blocks_file(self, blocks: str = None):
-        '''
-        Set the block wildcard filename.  Checks for appropriate wildcards
-        '''
-        self.blocks = validate(
-            self.config,
-            'paths.analysis.blocks',
-            'No block file provided',
-            blocks)
-
-        check_wildcards(self.blocks, 'state')
-
-    def set_labeled_blocks_file(self, blocks: str = None):
-        '''
-        Set the labeled block wildcard filename.
-        Checks for appropriate wildcards
-        '''
-        self.labeled_blocks = validate(
-            self.config,
-            'paths.analysis.labeled_blocks',
-            'No labeled block file provided',
-            blocks)
-
-        check_wildcards(self.labeled_blocks, 'state')
-
-    def set_quality_file(self, quality: str = None):
-        '''
-        Set the quality block wildcard filename.
-        Checks for appropriate wildcards
-        '''
-        self.quality_blocks = validate(
-            self.config,
-            'paths.analysis.quality',
-            'No quality block file provided',
-            quality)
-
-        check_wildcards(self.quality_blocks, 'state')
-
-    def set_masked_file(self, masks: str = None):
-        '''
-        Set the masked interval block wildcard filename.
-        Checks for appropriate wildcards
-        '''
-        self.masks = validate(
-            self.config,
-            'paths.analysis.masked_intervals',
-            'No masked interval file provided',
-            masks)
-
-        check_wildcards(self.masks, 'strain,chrom')
-
-    def set_prefix(self, prefix: str = ''):
+    def _set_prefix(self, prefix: str = ''):
         '''
         Set prefix string of the predictor to the supplied value or
         build it from the known states
         '''
-        if prefix == '':
+        if not prefix:
             if self.known_states == []:
                 err = 'Unable to build prefix, no known states provided'
                 log.exception(err)
@@ -187,11 +164,11 @@ class Configuration():
         else:
             self.prefix = prefix
 
-    def set_strains(self, test_strains: str = ''):
+    def _set_strains(self, test_strains: str = ''):
         '''
         build the strains to perform prediction on
         '''
-        if test_strains == '':
+        if not test_strains:
             test_strains = get_nested(self.config, 'paths.test_strains')
         else:
             # need to support list for test strains
@@ -262,37 +239,7 @@ class Configuration():
         else:  # strains set in config
             self.strains = list(sorted(set(strains)))
 
-    def set_predict_files(self,
-                          hmm_initial: str,
-                          hmm_trained: str,
-                          positions: str,
-                          probabilities: str,
-                          alignment: str):
-        '''
-        Set output files from provided values or config.
-        Raises value errors if a file is not provided.
-        Checks alignment for all wildcards and replaces prefix.
-        '''
-        self.hmm_initial = validate(self.config,
-                                    'paths.analysis.hmm_initial',
-                                    'No initial hmm file provided',
-                                    hmm_initial)
-
-        self.hmm_trained = validate(self.config,
-                                    'paths.analysis.hmm_trained',
-                                    'No trained hmm file provided',
-                                    hmm_trained)
-
-        self.set_positions(positions)
-
-        self.probabilities = validate(self.config,
-                                      'paths.analysis.probabilities',
-                                      'No probabilities file provided',
-                                      probabilities)
-
-        self.set_alignment(alignment)
-
-    def set_alignment(self, alignment: str):
+    def _set_alignment(self, alignment: str):
         '''
         Set the alignment file, checking wildcards prefix, strain and chrom.
         If prefix is present, it is substituted, otherwise checks just
@@ -300,87 +247,14 @@ class Configuration():
         '''
         alignment = validate(self.config,
                              'paths.analysis.alignment',
-                             'No alignment file provided',
+                             'No alignment provided',
                              alignment)
+
+        check_wildcards(alignment, 'strain,chrom')
         if '{prefix}' in alignment:
-            check_wildcards(alignment, 'prefix,strain,chrom')
             self.alignment = alignment.replace('{prefix}', self.prefix)
         else:
-            check_wildcards(alignment, 'strain,chrom')
             self.alignment = alignment
-
-    def set_positions(self, positions: str):
-        '''
-        Sets the position file
-        '''
-        self.positions = validate(self.config,
-                                  'paths.analysis.positions',
-                                  'No positions file provided',
-                                  positions)
-
-    def set_regions_files(self,
-                          regions: str = None,
-                          region_index: str = None):
-        '''
-        Set the region and pickle wildcard filename. Checks for state wildcards
-        '''
-        self.regions = validate(
-            self.config,
-            'paths.analysis.regions',
-            'No region file provided',
-            regions)
-        check_wildcards(self.regions, 'state')
-
-        self.region_index = validate(
-            self.config,
-            'paths.analysis.region_index',
-            'No region index file provided',
-            region_index)
-        check_wildcards(self.region_index, 'state')
-
-    def set_HMM_symbols(self):
-        '''
-        Set symbols based on config values, using defaults if unset
-        '''
-        self.symbols = {
-            'match': '+',
-            'mismatch': '-',
-            'unknown': '?',
-            'unsequenced': 'n',
-            'gap': '-',
-            'unaligned': '?',
-            'masked': 'x'
-        }
-        config_symbols = get_nested(self.config, 'HMM_symbols')
-        if config_symbols is not None:
-            for k, v in config_symbols.items():
-                if k not in self.symbols:
-                    log.warning("Unused symbol in configuration: "
-                                f"{k} -> '{v}'")
-                else:
-                    self.symbols[k] = v
-                    log.debug(f"Overwriting default symbol for {k} with '{v}'")
-
-            for k, v in self.symbols.items():
-                if k not in config_symbols:
-                    log.warning(f'Symbol for {k} unset in config, '
-                                f"using default '{v}'")
-
-        else:
-            for k, v in self.symbols.items():
-                log.warning(f'Symbol for {k} unset in config, '
-                            f"using default '{v}'")
-
-    def set_convergence(self):
-        '''
-        Set convergence for HMM training, using default if unset
-        '''
-        self.convergence = get_nested(self.config,
-                                      'analysis_params.convergence_threshold')
-        if self.convergence is None:
-            log.warning('No value set for convergence_threshold, using '
-                        'default of 0.001')
-            self.convergence = 0.001
 
     def get(self, key: str):
         '''
@@ -394,5 +268,130 @@ class Configuration():
                 print_dict(self.config) +
                 '\nSettings:\n' +
                 print_dict({k: v for k, v in self.__dict__.items()
-                            if k != 'config'})
+                            if k != 'config' and k != 'variables'
+                            and k != 'other_parsers'})
                 )
+
+
+class Variable():
+    def __init__(self, name, config_path=None, nullable=False, wildcards=None):
+        self.name = name
+        if config_path:
+            self.config_path = config_path
+        else:
+            self.config_path = name
+
+        self.nullable = nullable
+        self.wildcards = wildcards
+
+    def parse(self, value, config={}):
+        if self.nullable:
+            if not value:
+                value = get_nested(config, self.config_path)
+
+        else:
+            value = validate(config, self.config_path,
+                             f'No {self.name} provided', value)
+
+        if self.wildcards:
+            check_wildcards(value, self.wildcards)
+
+        return value
+
+
+class Threshold_Variable(Variable):
+    def __init__(self):
+        super().__init__('threshold', 'analysis_params.threshold')
+
+    def parse(self, value, config={}):
+        value = super().parse(value, config)
+
+        try:
+            value = float(value)
+
+        except ValueError:
+            if value != 'viterbi':
+                err = f'Unsupported threshold value: {value}'
+                log.exception(err)
+                raise ValueError(err)
+
+        return value
+
+
+class Filter_Threshold_Variable(Variable):
+    def __init__(self):
+        super().__init__('filter_threshold',
+                         'analysis_params.filter_threshold')
+
+    def parse(self, value, config={}):
+        value = super().parse(value, config)
+
+        try:
+            value = float(value)
+
+        except (ValueError, TypeError):
+            err = 'Filter threshold is not a valid number'
+            log.exception(err)
+            raise ValueError(err)
+
+        return value
+
+
+class Convergence_Variable(Variable):
+    def __init__(self):
+        super().__init__('convergence',
+                         'analysis_params.convergence_threshold',
+                         nullable=True)
+
+    def parse(self, value, config={}):
+        value = super().parse(value, config)
+
+        try:
+            value = float(value)
+
+        except (ValueError, TypeError):
+            log.warning('No value set for convergence_threshold, using '
+                        'default of 0.001')
+            value = 0.001
+
+        return value
+
+
+class Symbols_Variable(Variable):
+    def __init__(self):
+        super().__init__('symbols', '')
+
+    def parse(self, value, config):
+        '''
+        Set symbols based on config values, using defaults if unset
+        '''
+        symbols = {
+            'match': '+',
+            'mismatch': '-',
+            'unknown': '?',
+            'unsequenced': 'n',
+            'gap': '-',
+            'unaligned': '?',
+            'masked': 'x'
+        }
+        config_symbols = get_nested(config, 'HMM_symbols')
+        if config_symbols is not None:
+            for k, v in config_symbols.items():
+                if k not in symbols:
+                    log.warning("Unused symbol in configuration: "
+                                f"{k} -> '{v}'")
+                else:
+                    symbols[k] = v
+                    log.debug(f"Overwriting default symbol for {k} with '{v}'")
+
+            for k, v in symbols.items():
+                if k not in config_symbols:
+                    log.warning(f'Symbol for {k} unset in config, '
+                                f"using default '{v}'")
+
+        else:
+            for k, v in symbols.items():
+                log.warning(f'Symbol for {k} unset in config, '
+                            f"using default '{v}'")
+
+        return symbols

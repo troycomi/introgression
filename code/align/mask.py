@@ -1,7 +1,6 @@
 import sys
 import os
-from mask_helpers import *
-import align_helpers
+from mask_helpers import mask
 from analyze import read_args
 import global_params as gp
 
@@ -33,25 +32,22 @@ for i in range(len(s)):
 
     current_strain_fn = d + strain_fn.replace('*', strain)
     current_strain_masked_fn = d + strain_masked_fn.replace('*', strain)
-    current_strain_intervals_fn = intervals_d + intervals_fn.replace('*', strain)
+    current_strain_intervals_fn = intervals_d + intervals_fn.replace('*',
+                                                                     strain)
 
     for chrm in gp.chrms:
 
         in_fn = current_strain_fn.replace('?', chrm)
         out_fn = current_strain_intervals_fn.replace('?', chrm)
-    
+
         # get dustmasker intervals
-        cmd_string = gp.blast_install_path + 'dustmasker' + \
-                     ' -in ' + in_fn + \
-                     ' -out ' + out_fn + \
-                     ' -outfmt interval'
-        
+        cmd_string = (gp.blast_install_path + 'dustmasker' +
+                      ' -in ' + in_fn +
+                      ' -out ' + out_fn +
+                      ' -outfmt interval')
+
         os.system(cmd_string)
 
         # replace those intervals with Ns and write to masked fasta file
         masked_fn = current_strain_masked_fn.replace('?', chrm)
         mask(in_fn, masked_fn, out_fn)
-        
-
-
-

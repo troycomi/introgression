@@ -30,7 +30,7 @@ def config():
 @pytest.fixture
 def predictor(config):
     result = predict.Predictor(config)
-    config.set_states()
+    config.set('states')
     return result
 
 
@@ -569,14 +569,14 @@ def test_write_state_probs(predictor):
 
 def test_process_path(predictor, config, hm):
     probs = hm.posterior_decoding()[0]
-    config.set_threshold(0.8)
+    config.set(threshold=0.8)
     config.states = 'N E'.split()
     config.known_states = 'N E'.split()
     path, probability = predictor.process_path(hm)
     assert (probability == probs).all()
     assert path == 'E E N E E N E E N N'.split()
 
-    config.set_threshold('viterbi')
+    config.set(threshold='viterbi')
     path, probability = predictor.process_path(hm)
 
     assert (probability == probs).all()

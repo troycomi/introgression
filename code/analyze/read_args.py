@@ -1,10 +1,11 @@
 import sys
 from align import align_helpers
 
+
 def process_predict_args(args):
-    
+
     d = {}
-    
+
     i = 0
     d['tag'] = args[i]
 
@@ -14,7 +15,7 @@ def process_predict_args(args):
 
     i += 1
     d['improvement_frac'] = float(args[i])
-    
+
     i += 1
     d['threshold'] = args[i]
     if d['threshold'] != 'viterbi':
@@ -34,8 +35,9 @@ def process_predict_args(args):
             d['expected_length'][state] = float(args[i])
             i += 1
             d['expected_frac'][state] = float(args[i])
-        d['expected_frac'][d['known_states'][0]] = 1 - sum(d['expected_frac'].values())
-        d['expected_length'][d['known_states'][0]] = 0 # calculate later
+        d['expected_frac'][d['known_states'][0]] = \
+            1 - sum(d['expected_frac'].values())
+        d['expected_length'][d['known_states'][0]] = 0  # calculate later
 
         i += 1
         while i < len(args):
@@ -57,7 +59,8 @@ def process_predict_args(args):
     d['setup_args'] = setup_args
 
     return d
-    
+
+
 def read_setup_args(fn):
 
     x = {}
@@ -72,13 +75,15 @@ def read_setup_args(fn):
 
     d = {}
     d['references'] = x['references']
-    d['reference_directories'] =  dict(zip(x['references'], x['reference_directories']))
+    d['reference_directories'] = \
+        dict(zip(x['references'], x['reference_directories']))
     d['alignments_directory'] = x['alignments_directory'][0]
 
     d['strain_dirs'] = \
         align_helpers.get_strains(x['test_strain_directories'])
 
     return d
+
 
 def get_predict_args_by_tag(fn, tag):
     f = open(fn, 'r')
@@ -90,4 +95,3 @@ def get_predict_args_by_tag(fn, tag):
         line = f.readline()
     print(f'tag not found: {tag}')
     return None
-

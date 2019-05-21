@@ -30,7 +30,7 @@ def test_states(runner, mocker):
             '--config config.yaml id-regions --state s1 --state s2')
 
         assert result.exit_code != 0
-        assert str(result.exception) == 'No block file provided'
+        assert str(result.exception) == 'No blocks provided'
         assert mock_log.call_args_list == [
             mocker.call('Verbosity set to WARNING'),
             mocker.call('Read in 1 config file'),
@@ -55,7 +55,7 @@ def test_block_file(runner, mocker):
             '--blocks block_{state}.txt ')
 
         assert result.exit_code != 0
-        assert str(result.exception) == 'No labeled block file provided'
+        assert str(result.exception) == 'No labeled_blocks provided'
         assert mock_log.call_args_list == [
             mocker.call('Verbosity set to WARNING'),
             mocker.call('Read in 1 config file'),

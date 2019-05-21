@@ -221,15 +221,15 @@ def test_forward(hm):
         for o in range(1, len(hm.observations[seq])):
             row = []
             for current in range(len(hm.hidden_states)):
-                    total = -np.inf
-                    for prev in range(len(hm.hidden_states)):
-                        total = np.logaddexp(
-                            total,
-                            alpha_current[o-1][prev] +
-                            np.log(hm.transitions[prev][current]))
-                    total += np.log(
-                        hm.emissions[current][hm.observations[seq][o]])
-                    row.append(total)
+                total = -np.inf
+                for prev in range(len(hm.hidden_states)):
+                    total = np.logaddexp(
+                        total,
+                        alpha_current[o-1][prev] +
+                        np.log(hm.transitions[prev][current]))
+                total += np.log(
+                    hm.emissions[current][hm.observations[seq][o]])
+                row.append(total)
             alpha_current.append(row)
 
         alpha_iter.append(alpha_current)
@@ -312,8 +312,8 @@ def test_bw(hm):
                     norm = np.logaddexp(norm, prob)
 
             for i in range(len(hm.hidden_states)):
-                    for j in range(len(hm.hidden_states)):
-                        matrix[i][j] = matrix[i][j] - norm
+                for j in range(len(hm.hidden_states)):
+                    matrix[i][j] = matrix[i][j] - norm
 
             xi_current.append(matrix)
 
@@ -346,13 +346,13 @@ def test_calc_probs(hm):
             max_prob = np.NINF
             max_state = -1
             for prev_state in range(len(hm.hidden_states)):
-                    trans_prob = hm.transitions[prev_state][end_state]
-                    emis_prob = hm.emissions[end_state][hm.observations[pos]]
-                    prob = iter_probs[pos - 1][prev_state] + \
-                        np.log(trans_prob) + np.log(emis_prob)
-                    if prob > max_prob:
-                        max_prob = prob
-                        max_state = prev_state
+                trans_prob = hm.transitions[prev_state][end_state]
+                emis_prob = hm.emissions[end_state][hm.observations[pos]]
+                prob = iter_probs[pos - 1][prev_state] + \
+                    np.log(trans_prob) + np.log(emis_prob)
+                if prob > max_prob:
+                    max_prob = prob
+                    max_state = prev_state
 
             iter_probs[pos].append(max_prob)
             iter_states[pos].append(max_state)

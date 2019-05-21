@@ -5,6 +5,7 @@ import analyze.predict
 from analyze.introgression_configuration import Configuration
 from analyze.id_regions import ID_producer
 from analyze.summarize_region_quality import Summarizer
+from analyze.filter_regions import Filterer
 
 
 # TODO also check for snakemake object?
@@ -40,7 +41,7 @@ def cli(ctx, config, verbosity, log_file):
         conf = yaml.safe_load(path)
         ctx.obj.add_config(conf)
 
-    ctx.obj.set_log_file(log_file)
+    ctx.obj.set(log_file=log_file)
     if ctx.obj.log_file is not None:
         log.basicConfig(level=level, filename=ctx.obj.log_file, filemode='w')
     else:
@@ -94,20 +95,20 @@ def predict(ctx,
             only_poly_sites):
     config = ctx.obj
 
-    config.set_chromosomes()
+    config.set('chromosomes')
     log.info(f'Found {len(config.chromosomes)} chromosomes in config')
 
-    config.set_threshold(threshold)
+    config.set(threshold=threshold)
     log.info(f'Threshold value is \'{config.threshold}\'')
 
-    config.set_blocks_file(blocks)
+    config.set(blocks=blocks)
     log.info(f'Output blocks file is \'{config.blocks}\'')
 
-    config.set_states()
-    config.set_prefix(prefix)
+    config.set('states')
+    config.set(prefix=prefix)
     log.info(f'Prefix is \'{config.prefix}\'')
 
-    config.set_strains(test_strains)
+    config.set(strains=test_strains)
     if config.test_strains is None:
         log.info(f'No test_strains provided')
     else:
@@ -118,11 +119,11 @@ def predict(ctx,
     log.info(f'Found {str_len} unique strain'
              f'{"" if str_len == 1 else "s"}')
 
-    config.set_predict_files(hmm_initial,
-                             hmm_trained,
-                             positions,
-                             probabilities,
-                             alignment)
+    config.set(hmm_initial=hmm_initial,
+               hmm_trained=hmm_trained,
+               positions=positions,
+               probabilities=probabilities,
+               alignment=alignment)
     log.info(f'Hmm_initial file is \'{config.hmm_initial}\'')
     log.info(f'Hmm_trained file is \'{config.hmm_trained}\'')
     log.info(f'Positions file is \'{config.positions}\'')
@@ -144,24 +145,23 @@ def predict(ctx,
 @click.pass_context
 def id_regions(ctx, blocks, labeled, state):
     config = ctx.obj
-    config.set_chromosomes()
+    config.set('chromosomes')
     log.info(f'Found {len(config.chromosomes)} chromosomes in config')
 
     state = list(state)
-    config.set_states(state)
+    config.set(states=state)
     log.info(f'Found {len(config.states)} states to process')
 
-    config.set_blocks_file(blocks)
+    config.set(blocks=blocks)
     log.info(f'Input blocks file is \'{config.blocks}\'')
 
-    config.set_labeled_blocks_file(labeled)
+    config.set(labeled_blocks=labeled)
     log.info(f'Output blocks file is \'{config.labeled_blocks}\'')
 
     id_producer = ID_producer(config)
     id_producer.add_ids()
 
 
-# TODO add in summarize region quality here!
 @cli.command()
 @click.option('--state', multiple=True, help='States to summarize')
 @click.option('--labeled', default='',
@@ -192,35 +192,109 @@ def summarize_regions(ctx,
                       region_index):
     config = ctx.obj
 
-    config.set_states()
-
-    config.set_chromosomes()
+    config.set('states',
+               'chromosomes')
     log.info(f'Found {len(config.chromosomes)} chromosomes in config')
 
-    config.set_labeled_blocks_file(labeled)
+    config.set(labeled_blocks=labeled)
     log.info(f'Labeled blocks file is \'{config.labeled_blocks}\'')
 
-    config.set_quality_file(quality)
+    config.set(quality_blocks=quality)
     log.info(f'Quality file is \'{config.quality_blocks}\'')
 
-    config.set_masked_file(masks)
+    config.set(masks=masks)
     log.info(f'Mask file is \'{config.masks}\'')
 
-    config.set_prefix()
-    config.set_alignment(alignment)
+    config.set('prefix')
+    config.set(alignment=alignment)
     log.info(f'Alignment file is \'{config.alignment}\'')
 
-    config.set_positions(positions)
+    config.set(positions=positions)
     log.info(f'Positions file is \'{config.positions}\'')
 
-    config.set_regions_files(region, region_index)
+    config.set(regions=region, region_index=region_index)
     log.info(f'Region file is \'{config.regions}\'')
     log.info(f'Region index file is \'{config.region_index}\'')
 
-    config.set_HMM_symbols()
+    config.set('symbols')
 
     summarizer = Summarizer(config)
     summarizer.run(list(state))
+
+
+@cli.command()
+@click.option('--thresh', help='Threshold to apply to ambiguous filter',
+              default=None, type=float)
+@click.option('--introgress-filter', default='',
+              help='Filtered block file location with {state}.'
+              ' Contains only regions passing introgression filter')
+@click.option('--introgress-inter', default='',
+              help='Filtered block file location with {state}.'
+              ' Contains all regions with reasons they failed filtering')
+@click.option('--ambiguous-filter', default='',
+              help='Filtered block file location with {state}.'
+              ' Contains only regions passing ambiguous filter')
+@click.option('--ambiguous-inter', default='',
+              help='Filtered block file location with {state}.'
+              ' Contains all regions passing introgressing filtering, '
+              'with reasons they failed ambiguous filtering')
+@click.option('--filter-sweep', default='',
+              help='Contains summary results for applying ambiguous filter '
+              'with various threshold values supplied as arguments.')
+@click.option('--region', default='',
+              help='Region file with {state}, gzipped')
+@click.option('--region-index', default='',
+              help='Region index file with {state}, pickled')
+@click.option('--quality', default='',
+              help='Quality file with {state}')
+@click.argument('thresholds', nargs=-1, type=float)
+@click.pass_context
+def filter_regions(ctx,
+                   thresh,
+                   introgress_filter,
+                   introgress_inter,
+                   ambiguous_filter,
+                   ambiguous_inter,
+                   filter_sweep,
+                   region,
+                   region_index,
+                   quality,
+                   thresholds):
+    config = ctx.obj  # type: Configuration
+    config.set('states')
+
+    config.set(filter_threshold=thresh)
+    log.info(f"Filter threshold set to '{config.filter_threshold}'")
+
+    config.set(introgressed=introgress_filter,
+               introgressed_intermediate=introgress_inter,
+               ambiguous=ambiguous_filter,
+               ambiguous_intermediate=ambiguous_inter,
+               filter_sweep=filter_sweep)
+    log.info(f"Introgressed filtered file is '{config.introgressed}'")
+    log.info('Introgressed intermediate file is '
+             f"'{config.introgressed_intermediate}'")
+    log.info(f"Ambiguous filtered file is '{config.ambiguous}'")
+    log.info('Ambiguous intermediate file is '
+             f"'{config.ambiguous_intermediate}'")
+    if config.filter_sweep is not None:
+        log.info(f"Filter sweep file is '{config.filter_sweep}'")
+
+    config.set(regions=region,
+               region_index=region_index)
+    log.info(f'Region file is \'{config.regions}\'')
+    log.info(f'Region index file is \'{config.region_index}\'')
+
+    config.set(quality_blocks=quality)
+    log.info(f'Quality file is \'{config.quality_blocks}\'')
+
+    config.set('symbols')
+
+    thresholds = list(thresholds)
+    log.info(f'Threshold sweep with: {thresholds}')
+
+    filterer = Filterer(config)
+    filterer.run(thresholds)
 
 
 if __name__ == '__main__':

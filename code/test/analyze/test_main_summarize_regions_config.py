@@ -39,7 +39,7 @@ def test_empty(runner, mocker):
             '--config config.yaml summarize-regions')
 
         assert result.exit_code != 0
-        assert str(result.exception) == 'No labeled block file provided'
+        assert str(result.exception) == 'No labeled_blocks provided'
         assert mock_log.call_args_list == [
             mocker.call('Verbosity set to WARNING'),
             mocker.call('Read in 1 config file'),
@@ -73,7 +73,7 @@ def test_labeled(runner, mocker):
             '--config config.yaml summarize-regions')
 
         assert result.exit_code != 0
-        assert str(result.exception) == 'No quality block file provided'
+        assert str(result.exception) == 'No quality_blocks provided'
         assert mock_log.call_args_list == [
             mocker.call('Verbosity set to WARNING'),
             mocker.call('Read in 1 config file'),
@@ -100,7 +100,7 @@ def test_quality(runner, mocker):
                     'chromosomes': 'I II III'.split(),
                     'paths': {'analysis': {
                         'labeled_blocks': '{state}lbl.txt',
-                        'quality': '{state}qual.txt',
+                        'quality_blocks': '{state}qual.txt',
                     }}
                 }, f)
 
@@ -109,7 +109,7 @@ def test_quality(runner, mocker):
             '--config config.yaml summarize-regions')
 
         assert result.exit_code != 0
-        assert str(result.exception) == 'No masked interval file provided'
+        assert str(result.exception) == 'No masks provided'
         assert mock_log.call_args_list == [
             mocker.call('Verbosity set to WARNING'),
             mocker.call('Read in 1 config file'),
@@ -137,7 +137,7 @@ def test_masked(runner, mocker):
                     'chromosomes': 'I II III'.split(),
                     'paths': {'analysis': {
                         'labeled_blocks': '{state}lbl.txt',
-                        'quality': '{state}qual.txt',
+                        'quality_blocks': '{state}qual.txt',
                         'masked_intervals': '{strain}_{chrom}mask.txt',
                     }}
                 }, f)
@@ -147,7 +147,7 @@ def test_masked(runner, mocker):
             '--config config.yaml summarize-regions')
 
         assert result.exit_code != 0
-        assert str(result.exception) == 'No alignment file provided'
+        assert str(result.exception) == 'No alignment provided'
         assert mock_log.call_args_list == [
             mocker.call('Verbosity set to WARNING'),
             mocker.call('Read in 1 config file'),
@@ -176,7 +176,7 @@ def test_alignment(runner, mocker):
                     'chromosomes': 'I II III'.split(),
                     'paths': {'analysis': {
                         'labeled_blocks': '{state}lbl.txt',
-                        'quality': '{state}qual.txt',
+                        'quality_blocks': '{state}qual.txt',
                         'masked_intervals': '{strain}_{chrom}mask.txt',
                         'alignment': '{strain}_{chrom}_align.txt',
                     }}
@@ -188,7 +188,7 @@ def test_alignment(runner, mocker):
             '--config config.yaml summarize-regions')
 
         assert result.exit_code != 0
-        assert str(result.exception) == 'No positions file provided'
+        assert str(result.exception) == 'No positions provided'
         assert mock_log.call_args_list == [
             mocker.call('Verbosity set to WARNING'),
             mocker.call('Read in 1 config file'),
@@ -218,7 +218,7 @@ def test_positions(runner, mocker):
                     'chromosomes': 'I II III'.split(),
                     'paths': {'analysis': {
                         'labeled_blocks': '{state}lbl.txt',
-                        'quality': '{state}qual.txt',
+                        'quality_blocks': '{state}qual.txt',
                         'masked_intervals': '{strain}_{chrom}mask.txt',
                         'alignment': '{strain}_{chrom}_align.txt',
                         'positions': 'pos.txt',
@@ -230,7 +230,7 @@ def test_positions(runner, mocker):
             '--config config.yaml summarize-regions')
 
         assert result.exit_code != 0
-        assert str(result.exception) == 'No region file provided'
+        assert str(result.exception) == 'No regions provided'
         assert mock_log.call_args_list == [
             mocker.call('Verbosity set to WARNING'),
             mocker.call('Read in 1 config file'),
@@ -261,7 +261,7 @@ def test_region(runner, mocker):
                     'chromosomes': 'I II III'.split(),
                     'paths': {'analysis': {
                         'labeled_blocks': '{state}lbl.txt',
-                        'quality': '{state}qual.txt',
+                        'quality_blocks': '{state}qual.txt',
                         'masked_intervals': '{strain}_{chrom}mask.txt',
                         'alignment': '{strain}_{chrom}_align.txt',
                         'positions': 'pos.txt',
@@ -274,7 +274,7 @@ def test_region(runner, mocker):
             '--config config.yaml summarize-regions')
 
         assert result.exit_code != 0
-        assert str(result.exception) == 'No region index file provided'
+        assert str(result.exception) == 'No region_index provided'
         assert mock_log.call_args_list == [
             mocker.call('Verbosity set to WARNING'),
             mocker.call('Read in 1 config file'),
@@ -306,7 +306,7 @@ def test_run(runner, mocker):
                     'chromosomes': 'I II III'.split(),
                     'paths': {'analysis': {
                         'labeled_blocks': '{state}lbl.txt',
-                        'quality': '{state}qual.txt',
+                        'quality_blocks': '{state}qual.txt',
                         'masked_intervals': '{strain}_{chrom}mask.txt',
                         'alignment': '{strain}_{chrom}_align.txt',
                         'positions': 'pos.txt',

@@ -1,24 +1,20 @@
-import gene_predictions
+from analyze.to_update import gene_predictions
 import sys
 import os
 import gzip
-sys.path.insert(0, '../misc/')
-import read_fasta
 import global_params as gp
-sys.path.insert(0, '../sim/')
+
 
 def read_annotated_alignment(fn, nstrains):
     f = gzip.open(fn, 'rb')
     lines = f.readlines()
     f.close()
-    strains = [l[:-1] for l in lines[:nstrains]]
     genes = lines[nstrains + 2][len('genes:'):-1].split()
-    
+
     x = 11
     match_cer = ''
     match_par = ''
     gene = ''
-    gene_ind = -1
     intd = ''
 
     while x < len(lines):
@@ -38,13 +34,12 @@ def read_annotated_alignment(fn, nstrains):
 
     return match_cer, match_par, gene, genes, intd
 
-def write_ps_annotated(match_cer, match_par, gene, glist, intd, region, fn):
 
+def write_ps_annotated(match_cer, match_par, gene, glist, intd, region, fn):
     f = open(fn, 'w')
     f.write('ps\tmatch\tintd\tgene\n')
 
-    block_start = int(region['start']) - intd.index('I') 
-    block_end = len(intd) - intd.rindex('I') + int(region['end'])
+    block_start = int(region['start']) - intd.index('I')
 
     out_of_gene = True
     gene_ind = -1
@@ -64,11 +59,13 @@ def write_ps_annotated(match_cer, match_par, gene, glist, intd, region, fn):
         f.write('\n')
     f.close()
 
+
 tag = sys.argv[1]
 region = sys.argv[2]
 
-blocks_fn = gp.analysis_out_dir_absolute + tag + '/' + \
-            'introgressed_blocks_filtered_' + 'par' + '_' + tag + '_summary.txt'
+blocks_fn = (gp.analysis_out_dir_absolute + tag + '/' +
+             'introgressed_blocks_filtered_' + 'par' +
+             '_' + tag + '_summary.txt')
 r = gene_predictions.read_region_summary(blocks_fn)
 strain = r[region]['strain']
 chrm = r[region]['chromosome']
@@ -86,6 +83,5 @@ fn_out = plot_dir + 'ps_annotations.txt'
 
 write_ps_annotated(match_cer, match_par, gene, glist, intd, r[region], fn_out)
 
-#probs_f = gzip.open(gp.analysis_out_dir_absolute + tag + '/' + \
+# probs_f = gzip.open(gp.analysis_out_dir_absolute + tag + '/' + \
 #                    'probs_' + tag + '.txt.gz', 'rb')
-

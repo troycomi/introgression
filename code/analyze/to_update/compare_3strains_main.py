@@ -1,20 +1,7 @@
-import re
-import sys
-import os
-import copy
 import itertools
 from collections import defaultdict
-import gene_predictions
-import predict
-from filter_helpers import *
-sys.path.insert(0, '..')
 import global_params as gp
-sys.path.insert(0, '../sim/')
-import sim_analyze_hmm_bw as sim
-sys.path.insert(0, '../misc/')
-import mystats
-import read_table
-import read_fasta
+from misc import read_table
 
 strains = ['yjm1252', 'yjm1078', 'yjm248']
 
@@ -36,12 +23,13 @@ for region_id in regions:
         for base in range(start, end + 1):
             bases_by_strains[chrm][base].append(strain)
 
-#for base in sorted(bases_by_strains['I'].keys()):
+# for base in sorted(bases_by_strains['I'].keys()):
 #    print base, bases_by_strains['I'][base]
-        
+
 categories = []
-for i in range(1,len(strains) + 1):
-    categories += [tuple(sorted(x)) for x in itertools.combinations(strains, i)]
+for i in range(1, len(strains) + 1):
+    categories += [tuple(sorted(x))
+                   for x in itertools.combinations(strains, i)]
 
 cat_counts = defaultdict(int)
 for chrm in bases_by_strains.keys():
@@ -55,4 +43,3 @@ f.write('group\tcount\n')
 for cat in categories:
     f.write(','.join(cat) + '\t' + str(cat_counts[cat]) + '\n')
 f.close()
-

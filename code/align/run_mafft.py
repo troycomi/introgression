@@ -1,6 +1,6 @@
 import sys
 import os
-from align_helpers import *
+from align.align_helpers import (concatenate_fasta)
 from analyze import read_args
 import global_params as gp
 
@@ -19,8 +19,8 @@ if gp.resume_alignment:
         if os.stat(args['alignments_directory'] + fn).st_size != 0:
             a.append(fn)
 ref_prefix = '_'.join(args['references']) + '_'
-ref_fns = [args['reference_directories'][r] + r + '_chr' + '?' + \
-           mask_suffix + gp.fasta_suffix \
+ref_fns = [args['reference_directories'][r] + r + '_chr' + '?' +
+           mask_suffix + gp.fasta_suffix
            for r in args['references']]
 
 if ref_only:
@@ -30,16 +30,16 @@ if ref_only:
     ref_fns_chrm = [x.replace('?', chrm) for x in ref_fns]
     combined_fn = 'run_mafft_' + chrm + '.temp'
 
-    concatenate_fasta(ref_fns_chrm, \
+    concatenate_fasta(ref_fns_chrm,
                       args['references'], combined_fn)
-    
-    align_fn = ref_prefix + 'chr' + chrm + \
-        '_mafft' + gp.alignment_suffix
+
+    align_fn = (ref_prefix + 'chr' + chrm +
+                '_mafft' + gp.alignment_suffix)
     align_fn_abs = args['alignments_directory'] + align_fn
 
-    cmd_string = gp.mafft_install_path + '/mafft ' + \
-                 combined_fn + ' > ' + align_fn_abs + '; '
-        
+    cmd_string = (gp.mafft_install_path + '/mafft ' +
+                  combined_fn + ' > ' + align_fn_abs + '; ')
+
     cmd_string += 'rm ' + combined_fn + ';'
 
     print(cmd_string)
@@ -60,7 +60,6 @@ print(strain)
 # shell instance every time (I think there's a limit on the
 # command character count or something which is why we're not
 # making a single string for all strains)
-#cmd_string = ''
 
 current_strain_fn = d + strain_fn.replace('*', strain)
 
@@ -74,7 +73,7 @@ for chrm in gp.chrms:
 
     # if we don't already have an alignment for this strain/chromosome
     # (or that alignment file is empty), then make one
-    #if (align_fn not in a) or (os.stat(align_fn_abs).st_size == 0):
+    # if (align_fn not in a) or (os.stat(align_fn_abs).st_size == 0):
     if align_fn not in a:
         cmd_string = ''
 
@@ -82,18 +81,18 @@ for chrm in gp.chrms:
         ref_fns_chrm = [x.replace('?', chrm) for x in ref_fns]
         current_strain_fn_chrm = current_strain_fn.replace('?', chrm)
         combined_fn = 'run_mafft_' + strain + chrm + '.temp'
-        
-        concatenate_fasta(ref_fns_chrm + [current_strain_fn_chrm], \
+
+        concatenate_fasta(ref_fns_chrm + [current_strain_fn_chrm],
                           args['references'] + [strain], combined_fn)
-        
+
         # add --ep 0.123 to maybe get shorter alignment
-        #cmd_string += gp.mafft_install_path + '/mafft --ep 0.123 ' + \
+        # cmd_string += gp.mafft_install_path + '/mafft --ep 0.123 ' + \
         #    combined_fn + ' > ' + align_fn_abs + '; '
-        #cmd_string += gp.mafft_install_path + '/mafft --retree 1 ' + \
+        # cmd_string += gp.mafft_install_path + '/mafft --retree 1 ' + \
         #    combined_fn + ' > ' + align_fn_abs + '; '
         cmd_string += gp.mafft_install_path + '/mafft ' + \
             combined_fn + ' > ' + align_fn_abs + '; '
-        
+
         cmd_string += 'rm ' + combined_fn + ';'
 
         print(cmd_string)
@@ -109,7 +108,3 @@ for chrm in gp.chrms:
     else:
         print("already did this alignment: " + strain + ' chromosome ' + chrm)
         sys.stdout.flush()
-
-#print cmd_string
-#sys.stdout.flush()
-#os.system(cmd_string)

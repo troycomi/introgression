@@ -1,8 +1,6 @@
-import sys
-sys.path.insert(0, '..')
 import global_params as gp
-sys.path.insert(0, '../misc')
-import read_fasta
+from misc import read_fasta
+
 
 # count sites where n, ..., 3, 2, 1 genomes aligned, etc.
 def num_strains_aligned_by_site(seqs):
@@ -17,7 +15,8 @@ def num_strains_aligned_by_site(seqs):
 
     return num_strains_hist
 
-# fraction of each strain's sequence contained in alignment 
+
+# fraction of each strain's sequence contained in alignment
 # (should be 1)
 def fraction_strains_aligned(headers, seqs):
     nseqs = len(seqs)
@@ -34,6 +33,7 @@ def fraction_strains_aligned(headers, seqs):
 
     return fracs_aligned, seq_lengths
 
+
 # using each genome as reference, percentage of other genomes aligned
 def frac_aligned_to_reference(seqs, seq_lengths):
     nseqs = len(seqs)
@@ -47,7 +47,8 @@ def frac_aligned_to_reference(seqs, seq_lengths):
             else:
                 total = 0
                 for i in range(nsites):
-                    if seqs[ref][i] != gp.gap_symbol and seqs[other][i] != gp.gap_symbol:
+                    if seqs[ref][i] != gp.gap_symbol and \
+                            seqs[other][i] != gp.gap_symbol:
                         total += 1
                 r.append(float(total) / seq_lengths[other])
         fracs_aligned_to_ref.append(r)

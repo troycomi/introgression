@@ -39,7 +39,7 @@ def default_builder(config):
          }
     }
     builder = predict.HMM_Builder(config)
-    config.set_states()
+    config.set('states')
     builder.set_expected_values()
     builder.update_expected_length(1e5)
     return builder
@@ -185,7 +185,7 @@ def test_set_expected_values(builder, config):
                             ]
          }
     }
-    config.set_states()
+    config.set('states')
     builder.set_expected_values()
     assert builder.expected_lengths == {
         'CBS432': 10,
@@ -230,7 +230,7 @@ def test_update_expected_length(builder, config):
                             ]
          }
     }
-    config.set_states()
+    config.set('states')
     builder.set_expected_values()
 
     assert builder.expected_lengths == {

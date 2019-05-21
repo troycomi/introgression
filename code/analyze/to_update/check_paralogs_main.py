@@ -1,6 +1,6 @@
 # Loop through all introgressed genes (might be just a small part)
 # that have paralogs
-# Extract introgressed portion of gene 
+# Extract introgressed portion of gene
 # Blast that portion against:
 # - Cerevisiae gene
 # - Paradoxus gene (region aligned to cerevisiae gene)
@@ -13,23 +13,14 @@
 # - Paradoxus paralog -> interesting...
 
 
-import re
-import sys
 import os
 import math
-import Bio.SeqIO
-import copy
 import gzip
-import gene_predictions
-sys.path.insert(0, '..')
 import global_params as gp
-sys.path.insert(0, '../align/')
-import align_helpers
-sys.path.insert(0, '../misc/')
-import read_table
-import read_fasta
-import write_fasta
-import mystats
+from align import align_helpers
+from misc import read_table
+from misc import read_fasta
+from misc import write_fasta
 
 postprocess = False
 
@@ -48,7 +39,7 @@ strain_dirs = dict(s)
 # dict of dicts keyed by region id and column names; includes filtered
 # and unfiltered regions
 region_to_genes = {}
-f = open(gp.analysis_out_dir_absolute + tag + \
+f = open(gp.analysis_out_dir_absolute + tag +
          '/genes_for_each_region_' + tag + '.txt', 'r')
 line = f.readline()
 while line != '':
@@ -60,10 +51,10 @@ while line != '':
 f.close()
 
 # dict of lists keyed by region id
-t_regions_filtered, l = \
-    read_table.read_table_rows(gp.analysis_out_dir_absolute + tag + \
-                               '/introgressed_blocks_filtered_par_' + tag + \
-                               '_summary_plus.txt', \
+t_regions_filtered, _ = \
+    read_table.read_table_rows(gp.analysis_out_dir_absolute + tag +
+                               '/introgressed_blocks_filtered_par_' + tag +
+                               '_summary_plus.txt',
                                '\t', header=True)
 
 
@@ -73,12 +64,12 @@ gene_to_regions_filtered = {}
 for region_id in region_to_genes:
     genes = region_to_genes[region_id]
     for gene in genes:
-        if not gene_to_regions.has_key(gene):
+        if gene not in gene_to_regions:
             gene_to_regions[gene] = []
         gene_to_regions[gene].append(region_id)
     if region_id in t_regions_filtered:
         for gene in genes:
-            if not gene_to_regions_filtered.has_key(gene):
+            if gene not in gene_to_regions_filtered:
                 gene_to_regions_filtered[gene] = []
             gene_to_regions_filtered[gene].append(region_id)
 
@@ -95,7 +86,7 @@ for line in lines:
 # read in all gene coordinates
 gene_coords = {}
 for chrm in gp.chrms:
-    f = open(gp.analysis_out_dir_absolute + \
+    f = open(gp.analysis_out_dir_absolute +
              'S288c_chr' + chrm + '_genes.txt', 'r')
     lines = [line.strip().split('\t') for line in f.readlines()]
     f.close()
@@ -108,8 +99,9 @@ all_rankings = dict(zip(keys, [[] for key in keys]))
 
 genes_to_analyze = gene_to_regions_filtered.keys()
 if postprocess:
-    genes_to_analyze = [line.split('\t')[0] for line in \
-                        open('check_paralogs_out_cer_paralog.tsv', 'r').readlines()]
+    genes_to_analyze = [line.split('\t')[0] for line in
+                        open('check_paralogs_out_cer_paralog.tsv',
+                             'r').readlines()]
     genes_to_analyze = list(set(genes_to_analyze))
 
 ip = 0
@@ -117,13 +109,13 @@ for gene in genes_to_analyze:
     if gene not in paralogs:
         continue
 
-    print ip
+    print(ip)
     ip += 1
 
     chrm, ref_gene_start, ref_gene_end = gene_coords[gene]
 
     gene_headers, gene_seqs = \
-        read_fasta.read_fasta(gp.analysis_out_dir_absolute + tag + '/genes/' + \
+        read_fasta.read_fasta(gp.analysis_out_dir_absolute + tag + '/genes/' +
                               gene + '/' + gene + '_from_alignment.fa')
     gene_headers = [x[1:].strip() for x in gene_headers]
     strain_seqs = dict(zip(gene_headers, gene_seqs))
@@ -133,7 +125,7 @@ for gene in genes_to_analyze:
 
     paralog = paralogs[gene]
     gene_headers, gene_seqs = \
-        read_fasta.read_fasta(gp.analysis_out_dir_absolute + tag + '/genes/' + \
+        read_fasta.read_fasta(gp.analysis_out_dir_absolute + tag + '/genes/' +
                               paralog + '/' + paralog + '_from_alignment.fa')
     gene_headers = [x[1:].strip() for x in gene_headers]
     strain_paralog_seqs = dict(zip(gene_headers, gene_seqs))
@@ -153,8 +145,8 @@ for gene in genes_to_analyze:
     f.close()
 
     cmd_string = gp.blast_install_path + 'makeblastdb' + \
-                 ' -in ' + db_fn + \
-                 ' -dbtype nucl'
+        ' -in ' + db_fn + \
+        ' -dbtype nucl'
     os.system(cmd_string)
 
     strain_intd_seqs = {}
@@ -164,25 +156,29 @@ for gene in genes_to_analyze:
         ref_region_start = int(t_regions_filtered[region]['start'])
         ref_region_end = int(t_regions_filtered[region]['end'])
 
-        ref_to_strain_coords = [float(x[:-1]) for x in \
-                                gzip.open(gp.analysis_out_dir_absolute + \
-                                          'coordinates/S288c_to_' + strain + \
-                                          '_chr' + chrm + '.txt.gz').readlines()]
+        ref_to_strain_coords = [float(x[:-1]) for x in
+                                gzip.open(gp.analysis_out_dir_absolute +
+                                          'coordinates/S288c_to_' + strain +
+                                          '_chr' + chrm
+                                          + '.txt.gz').readlines()]
 
-        gene_start = int(max(0, math.ceil(ref_to_strain_coords[ref_gene_start])))
+        gene_start = int(max(0, math.ceil(
+            ref_to_strain_coords[ref_gene_start])))
         gene_end = int(math.floor(ref_to_strain_coords[ref_gene_end]))
-        
-        region_start = int(max(0, math.ceil(ref_to_strain_coords[ref_region_start])))
+
+        region_start = int(max(0, math.ceil(
+            ref_to_strain_coords[ref_region_start])))
         region_end = int(math.floor(ref_to_strain_coords[ref_region_end]))
 
         start = max(gene_start, region_start)
         end = min(gene_end, region_end)
 
-        chrom_seq = read_fasta.read_fasta(strain_dirs[strain] + strain + '_chr' + \
+        chrom_seq = read_fasta.read_fasta(strain_dirs[strain] +
+                                          strain + '_chr' +
                                           chrm + gp.fasta_suffix)[1][0]
         seq = chrom_seq[start:end+1]
 
-        if not strain_intd_seqs.has_key(strain):
+        if strain not in strain_intd_seqs:
             strain_intd_seqs[strain] = chrom_seq[gene_start:gene_end+1].lower()
         relative_start = start - gene_start
         relative_end = end - gene_start
@@ -196,11 +192,11 @@ for gene in genes_to_analyze:
         f.close()
 
         cmd_string = gp.blast_install_path + 'blastn' + \
-                     ' -db ' + db_fn + \
-                     ' -query ' + query_fn + \
-                     ' -out ' + out_fn + \
-                     ' -outfmt ' + outfmt
-        print cmd_string
+            ' -db ' + db_fn + \
+            ' -query ' + query_fn + \
+            ' -out ' + out_fn + \
+            ' -outfmt ' + outfmt
+        print(cmd_string)
         os.system(cmd_string)
 
         if os.stat(out_fn).st_size == 0:
@@ -210,9 +206,9 @@ for gene in genes_to_analyze:
                          ' -out ' + out_fn + \
                          ' -task "blastn-short"' + \
                          ' -outfmt ' + outfmt
-            print cmd_string
+            print(cmd_string)
             os.system(cmd_string)
-            
+
         lines = open(out_fn, 'r').readlines()
         best_key = 'none'
         if len(lines) != 0:
@@ -236,10 +232,10 @@ for gene in genes_to_analyze:
     # write reference genes and paralogs and all introgressed
     # genes to file and then align
     fn = gp.analysis_out_dir_absolute + tag + '/paralogs/' + \
-         gene + gp.fasta_suffix
-    headers = ['S288c ' + gene, 'CBS432 ' + gene, \
+        gene + gp.fasta_suffix
+    headers = ['S288c ' + gene, 'CBS432 ' + gene,
                'S288c ' + paralog, 'CBS432 ' + paralog]
-    seqs = [cer_seq.lower(), par_seq.lower(), \
+    seqs = [cer_seq.lower(), par_seq.lower(),
             cer_paralog_seq.lower(), par_paralog_seq.lower()]
     for strain in strain_intd_seqs:
         headers.append(strain + ' ' + gene)
@@ -248,10 +244,10 @@ for gene in genes_to_analyze:
 
     aligned_fn = fn.replace(gp.fasta_suffix, gp.alignment_suffix)
     cmd_string = gp.mafft_install_path + '/mafft ' + \
-                 ' --quiet --reorder --preservecase ' + \
-                 fn + ' > ' + aligned_fn
+        ' --quiet --reorder --preservecase ' + \
+        fn + ' > ' + aligned_fn
     os.system(cmd_string)
-        
+
 f = open('check_paralogs_out.tsv', 'w')
 f.write('category\tnum_total_genes\tnum_unique_genes\n')
 for key in keys:
@@ -265,7 +261,5 @@ for key in keys:
     for item in all_rankings[key]:
         fk.write('\t'.join(item) + '\n')
     fk.close()
-    
+
 f.close()
-
-

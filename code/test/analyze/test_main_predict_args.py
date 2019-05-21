@@ -31,7 +31,7 @@ def test_threshold(runner, mocker):
             '--config config.yaml predict --threshold 0.05')
 
         assert result.exit_code != 0
-        assert str(result.exception) == 'No block file provided'
+        assert str(result.exception) == 'No blocks provided'
         assert mock_log.call_args_list == [
             mocker.call('Verbosity set to WARNING'),
             mocker.call('Read in 1 config file'),
@@ -136,7 +136,7 @@ def test_test_strains(runner, mocker):
 
         assert result.exit_code != 0
         assert str(result.exception) == \
-            'No initial hmm file provided'
+            'No hmm_initial provided'
 
         print(mock_log.call_args_list)
         assert mock_log.call_args_list == [
@@ -188,7 +188,7 @@ def test_outputs(runner, mocker):
 
         assert result.exit_code != 0
         assert str(result.exception) == \
-            'No trained hmm file provided'
+            'No hmm_trained provided'
         assert mock_log.call_args_list == mock_calls
 
     with runner.isolated_filesystem():
@@ -215,7 +215,7 @@ def test_outputs(runner, mocker):
 
         assert result.exit_code != 0
         assert str(result.exception) == \
-            'No positions file provided'
+            'No positions provided'
         assert mock_log.call_args_list == mock_calls
 
     with runner.isolated_filesystem():
@@ -244,7 +244,7 @@ def test_outputs(runner, mocker):
 
         assert result.exit_code != 0
         assert str(result.exception) == \
-            'No alignment file provided'
+            'No alignment provided'
         assert mock_log.call_args_list == mock_calls
 
     with runner.isolated_filesystem():

@@ -1,14 +1,12 @@
 import os
-import sys
-sys.path.insert(0, '..')
 import global_params as gp
 import numpy
 
 gp_dir = '../'
-stats_files = [gp_dir + gp.alignments_dir + x for x in filter(\
+stats_files = [gp_dir + gp.alignments_dir + x for x in filter(
         lambda x: 'stats' in x, os.listdir(gp_dir + gp.alignments_dir))]
 
-#avg_frac_aligned_by_chrm = dict(zip(gp.chrms, [0]*len(gp.chrms)))
+# avg_frac_aligned_by_chrm = dict(zip(gp.chrms, [0]*len(gp.chrms)))
 avg_frac_aligned_p = 0
 avg_frac_aligned_x = 0
 total_p = 0
@@ -26,18 +24,18 @@ for fn in stats_files:
     avg_frac_aligned_x += fx * lx
     total_p += lp
     total_x += lx
-    #print fn[fn.find('chr')-8:], fx, lx, lc
+    # print fn[fn.find('chr')-8:], fx, lx, lc
     a.append(fx)
 
 
 avg_frac_aligned_p /= total_p
 avg_frac_aligned_x /= total_x
 
-print len(stats_files)
-print avg_frac_aligned_p
-print avg_frac_aligned_x
+print(len(stats_files))
+print(avg_frac_aligned_p)
+print(avg_frac_aligned_x)
 
 hist, edges = numpy.histogram(a, bins=30)
-print hist
-print edges
-print sum(hist[:-1])
+print(hist)
+print(edges)
+print(sum(hist[:-1]))

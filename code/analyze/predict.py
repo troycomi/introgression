@@ -401,9 +401,9 @@ class Predictor():
 class HMM_Builder():
     def __init__(self, configuration: Configuration):
         self.config = configuration
-        self.config.set_HMM_symbols()
+        self.config.set('symbols')
         self.symbols = self.config.symbols
-        self.config.set_convergence()
+        self.config.set('convergence')
 
     def update_emission_symbols(self, repeats: int):
         '''

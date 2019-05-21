@@ -1,14 +1,17 @@
 import os
-import sys
-sys.path.insert(0, '..')
 import global_params as gp
 
 gp_dir = '../'
-stats_files = [gp_dir + gp.alignments_dir + x for x in filter(\
-        lambda x: 'stats' in x and 'summary' not in x, os.listdir(gp_dir + gp.alignments_dir))]
+stats_files = [gp_dir + gp.alignments_dir + x for x in filter(
+    lambda x: 'stats' in x and 'summary' not in x,
+    os.listdir(gp_dir + gp.alignments_dir))]
 
 # goal is to generate file for R (e.g. for two references and test strain):
-# chromosome strain frac_S288c_S288c frac_S288c_CBS432 frac_S288c_x frac_CBS432_S288c frac_CBS432_CBS432 frac_CBS432_x frac_x_S288c frac_x_CBS432 frac_x_x  aligned_length_S288c aligned_length_CBS432 aligned_length_x num_align_columns_0 num_align_columns_1 num_align_columns_2 num_align_columns_3
+# chromosome strain frac_S288c_S288c frac_S288c_CBS432 frac_S288c_x
+# frac_CBS432_S288c frac_CBS432_CBS432 frac_CBS432_x frac_x_S288c
+# frac_x_CBS432 frac_x_x  aligned_length_S288c aligned_length_CBS432
+# aligned_length_x num_align_columns_0 num_align_columns_1
+# num_align_columns_2 num_align_columns_3
 
 f = open(gp_dir + gp.alignments_dir + 'mafft_stats_summary.txt', 'w')
 
@@ -25,15 +28,15 @@ for ref in gp.alignment_ref_order + ['x']:
 
 for i in range(0, len(gp.alignment_ref_order) + 2):
     f.write('\t' + 'num_align_columns_' + str(i))
-    
+
 f.write('\n')
 
 all_strains = gp.alignment_ref_order + ['x']
 
 # one line for each of these files
 for fn in stats_files:
-    print fn
-    
+    print(fn)
+
     lines = [line.strip() for line in open(fn, 'r').readlines()]
 
     # histogram of number of number of strains aligned
@@ -43,10 +46,10 @@ for fn in stats_files:
         c.append(float(lines[i + offset].split(',')[1]))
 
     # aligned lengths
-    l = []
+    lengths = []
     offset += len(all_strains) + 1 + 2
     for i in range(len(all_strains)):
-        l.append(float(lines[i + offset].split(',')[1]))
+        lengths.append(float(lines[i + offset].split(',')[1]))
 
     sx = lines[offset + len(all_strains) - 1].split(',')[0]
 
@@ -67,7 +70,7 @@ for fn in stats_files:
         for j in range(len(all_strains)):
             f.write('\t' + str(fr[i][j]))
     for i in range(len(all_strains)):
-        f.write('\t' + str(l[i]))
+        f.write('\t' + str(lengths[i]))
     for i in range(len(all_strains) + 1):
         f.write('\t' + str(c[i]))
     f.write('\n')

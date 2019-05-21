@@ -1,10 +1,9 @@
-import sys
-import os
-sys.path.insert(0, '..')
 import global_params as gp
 
 
-lines = [x.split(',') for x in open('/tigress/AKEY/akey_vol2/aclark4/nobackup/introgression/data/Table_S5_introgressed_genes.csv', 'r').readlines()]
+lines = [x.split(',') for x in open(
+    '/tigress/AKEY/akey_vol2/aclark4/nobackup/introgression/data/\
+    Table_S5_introgressed_genes.csv', 'r').readlines()]
 genes = []
 genes_verified = []
 for i in range(2, len(lines)):
@@ -14,12 +13,13 @@ for i in range(2, len(lines)):
 
 gp.analysis_out_dir_absolute
 
-lines = [x.split(' ') for x in open('../../results/introgressed_id_genes.txt', 'r').readlines()]
+lines = [x.split(' ') for x in open('../../results/introgressed_id_genes.txt',
+                                    'r').readlines()]
 my_genes = [x[0] for x in lines]
 
-print len(genes), 'genes from paper'
-print len(genes_verified), 'verified genes from paper'
-print len(my_genes), '(verified) genes I identify'
+print(len(genes), 'genes from paper')
+print(len(genes_verified), 'verified genes from paper')
+print(len(my_genes), '(verified) genes I identify')
 
 pm = []
 pnm = []
@@ -33,27 +33,28 @@ for g in my_genes:
     if g not in genes:
         npm.append(g)
 
-print 'genes found in paper that I found (', len(pm), '):'
+print('genes found in paper that I found (', len(pm), '):')
 for x in pm:
-    print x
-print 'genes found in paper that I didn\'t find (', len(pnm), '):'
+    print(x)
+print('genes found in paper that I didn\'t find (', len(pnm), '):')
 for x in pnm:
-    print x
-print 'genes that I found not in paper(', len(npm), '):'
+    print(x)
+print('genes that I found not in paper(', len(npm), '):')
 for x in npm:
-    print x
+    print(x)
 
-lines = [x.strip().split(' ') for x in open('../../results/introgressed_id_genes_fns.txt', 'r').readlines()]
+lines = [x.strip().split(' ') for x in open(
+    '../../results/introgressed_id_genes_fns.txt', 'r').readlines()]
 gene_to_fns = {}
 for line in lines:
     gene_to_fns[line[0]] = line[1:]
 
 while True:
-    gene = raw_input('=========================================\nwhich gene? ')
+    gene = input('=========================================\nwhich gene? ')
     try:
         gene_to_fns[gene]
-    except:
-        print 'that gene wasn\'t one i found'
+    except KeyError:
+        print('that gene wasn\'t one i found')
         continue
     for fn in gene_to_fns[gene]:
         f = open(fn)
@@ -78,16 +79,17 @@ while True:
                 seq += 'p'
             else:
                 seq += '-'
-        print '==========', fn
+        print('==========', fn)
         line_length = 10000
         for i in range(0, len(seq), line_length):
-            print seqc[i:i+line_length]
-            print seqp[i:i+line_length]
-            print seqx[i:i+line_length]
-            print seq[i:i+line_length]
-            print
-    print
-    raw_input('')
+            print(seqc[i:i+line_length])
+            print(seqp[i:i+line_length])
+            print(seqx[i:i+line_length])
+            print(seq[i:i+line_length])
+            print()
+    print()
+    input('')
 
 
-# TODO: get alignments for genes found in paper but not by me; print positions in each genome before alignments
+# TODO: get alignments for genes found in paper but not by me;
+# print positions in each genome before alignments

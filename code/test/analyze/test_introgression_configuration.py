@@ -1,4 +1,5 @@
-from analyze.introgression_configuration import Configuration
+from analyze.introgression_configuration import (
+    Configuration, Variable)
 import pytest
 
 
@@ -7,29 +8,80 @@ def config():
     return Configuration()
 
 
-def test_set_log_file(config):
-    config.set_log_file()
+def test_set(config):
+    # unknown key
+    with pytest.raises(ValueError) as e:
+        config.set(asdf=None)
+    assert 'Unknown variable to set: asdf' in str(e)
+
+    # chromosomes
+    with pytest.raises(ValueError) as e:
+        config.set('chromosomes')
+    assert 'No chromosomes provided' in str(e)
+
+    config.config = {'chromosomes': ['I']}
+    config.set('chromosomes')
+    assert config.chromosomes == ['I']
+
+    # log file
+    config.set(log_file='')
     assert config.log_file is None
 
-    config.set_log_file('test')
+    config.set(log_file='test')
     assert config.log_file == 'test'
 
     config.config = {'paths': {'log_file': 'log'}}
-    config.set_log_file()
+    config.set(log_file='')
     assert config.log_file == 'log'
 
-    config.set_log_file('test')
+    config.set(log_file='test')
     assert config.log_file == 'test'
 
 
-def test_set_chromosomes(config):
-    with pytest.raises(ValueError) as e:
-        config.set_chromosomes()
-    assert 'No chromosomes specified in config file!' in str(e)
+def test_set_state_files(config):
+    state_files = [
+        'blocks',
+        'labeled_blocks',
+        'quality_blocks',
+        'introgressed',
+        'introgressed_intermediate',
+        'ambiguous',
+        'ambiguous_intermediate',
+    ]
+    for sf in state_files:
+        with pytest.raises(ValueError) as e:
+            config.set(**{sf: None})
+        assert f'No {sf} provided' in str(e)
 
-    config.config = {'chromosomes': ['I']}
-    config.set_chromosomes()
-    assert config.chromosomes == ['I']
+        with pytest.raises(ValueError) as e:
+            config.set(**{sf: 'test'})
+        assert '{state} not found in test' in str(e)
+
+        config.set(**{sf: 'test{state}'})
+        assert config.__dict__[sf] == 'test{state}'
+
+        config.config = {'paths': {'analysis': {sf: 'test2{state}'}}}
+        config.set(**{sf: None})
+        assert config.__dict__[sf] == 'test2{state}'
+
+
+def test_set_nonwild_files(config):
+    nonwild_files = [
+        'hmm_initial',
+        'hmm_trained',
+        'positions'
+    ]
+    for nwf in nonwild_files:
+        with pytest.raises(ValueError) as e:
+            config.set(**{nwf: None})
+        assert f'No {nwf} provided' in str(e)
+
+        config.set(**{nwf: 'test'})
+        assert config.__dict__[nwf] == 'test'
+
+        config.config = {'paths': {'analysis': {nwf: 'test2'}}}
+        config.set(**{nwf: None})
+        assert config.__dict__[nwf] == 'test2'
 
 
 def test_get_states(config):
@@ -141,7 +193,7 @@ def test_set_states(config):
              }
         }
 
-    config.set_states()
+    config.set('states')
     assert config.known_states ==\
         'S288c CBS432 N_45 DBVPG6304 UWOPS91_917_1'.split()
     assert config.unknown_states ==\
@@ -149,7 +201,7 @@ def test_set_states(config):
     assert config.states ==\
         'S288c CBS432 N_45 DBVPG6304 UWOPS91_917_1 unknown'.split()
 
-    config.set_states([])
+    config.set(states=[])
     assert config.known_states ==\
         'S288c CBS432 N_45 DBVPG6304 UWOPS91_917_1'.split()
     assert config.unknown_states ==\
@@ -157,122 +209,75 @@ def test_set_states(config):
     assert config.states ==\
         'S288c CBS432 N_45 DBVPG6304 UWOPS91_917_1 unknown'.split()
 
-    config.set_states('testing 123'.split())
+    config.set(states='testing 123'.split())
     assert config.states == ['testing', '123']
 
     config.config = {}
 
     with pytest.raises(ValueError) as e:
-        config.set_states()
+        config.set('states')
     assert 'No states specified' in str(e)
 
 
 def test_set_threshold(config):
     with pytest.raises(ValueError) as e:
-        config.set_threshold()
+        config.set('threshold')
     assert 'No threshold provided' in str(e)
 
     config.config = {'analysis_params': {'threshold': 'asdf'}}
     with pytest.raises(ValueError) as e:
-        config.set_threshold()
+        config.set('threshold')
     assert 'Unsupported threshold value: asdf' in str(e)
 
-    config.set_threshold(0.05)
+    config.set(threshold=0.05)
     assert config.threshold == 0.05
 
     config.config = {'analysis_params':
                      {'threshold': 'viterbi'}}
-    config.set_threshold()
+    config.set('threshold')
     assert config.threshold == 'viterbi'
-
-
-def test_set_labeled_blocks_file(config):
-    with pytest.raises(ValueError) as e:
-        config.set_labeled_blocks_file('blocks_file')
-    assert '{state} not found in blocks_file' in str(e)
-
-    config.set_labeled_blocks_file('blocks_file{state}')
-    assert config.labeled_blocks == 'blocks_file{state}'
-
-    with pytest.raises(ValueError) as e:
-        config.set_labeled_blocks_file()
-    assert 'No labeled block file provided' in str(e)
-
-    config.config = {'paths': {'analysis':
-                               {'labeled_blocks': 'blocks_file'}}}
-    with pytest.raises(ValueError) as e:
-        config.set_labeled_blocks_file()
-    assert '{state} not found in blocks_file' in str(e)
-
-    config.config = {'paths': {'analysis': {'labeled_blocks':
-                                            'blocks_file{state}'}}}
-    config.set_labeled_blocks_file()
-    assert config.labeled_blocks == 'blocks_file{state}'
-
-
-def test_set_blocks_file(config):
-    with pytest.raises(ValueError) as e:
-        config.set_blocks_file('blocks_file')
-    assert '{state} not found in blocks_file' in str(e)
-
-    config.set_blocks_file('blocks_file{state}')
-    assert config.blocks == 'blocks_file{state}'
-
-    with pytest.raises(ValueError) as e:
-        config.set_blocks_file()
-    assert 'No block file provided' in str(e)
-
-    config.config = {'paths': {'analysis': {'blocks': 'blocks_file'}}}
-    with pytest.raises(ValueError) as e:
-        config.set_blocks_file()
-    assert '{state} not found in blocks_file' in str(e)
-
-    config.config = {'paths': {'analysis': {'blocks':
-                                            'blocks_file{state}'}}}
-    config.set_blocks_file()
-    assert config.blocks == 'blocks_file{state}'
 
 
 def test_set_prefix(config):
     config.known_states = ['s1']
-    config.set_prefix()
+    config.set('prefix')
     assert config.prefix == 's1'
 
     config.known_states = 's1 s2'.split()
-    config.set_prefix()
+    config.set('prefix')
     assert config.prefix == 's1_s2'
 
-    config.set_prefix('prefix')
+    config.set(prefix='prefix')
     assert config.prefix == 'prefix'
 
     config.known_states = []
     with pytest.raises(ValueError) as e:
-        config.set_prefix()
+        config.set('prefix')
     assert 'Unable to build prefix, no known states provided' in str(e)
 
 
 def test_set_strains(config, mocker):
     mock_find = mocker.patch.object(Configuration, 'find_strains')
 
-    config.set_strains()
+    config.set('strains')
     mock_find.called_with(None)
 
     with pytest.raises(ValueError) as e:
         config.config = {'paths': {'test_strains': ['test']}}
-        config.set_strains()
+        config.set('strains')
     assert '{strain} not found in test' in str(e)
 
     with pytest.raises(ValueError) as e:
         config.config = {'paths': {'test_strains': ['test{strain}']}}
-        config.set_strains()
+        config.set('strains')
     assert '{chrom} not found in test{strain}' in str(e)
 
     config.config = {'paths': {'test_strains':
                                ['test{strain}{chrom}']}}
-    config.set_strains()
+    config.set('strains')
     mock_find.called_with(['test{strain}{chrom}'])
 
-    config.set_strains('test{strain}{chrom}')
+    config.set(strains='test{strain}{chrom}')
     mock_find.called_with(['test{strain}{chrom}'])
 
 
@@ -355,161 +360,94 @@ def test_find_strains(config, mocker):
     assert config.strains == ['s1', 's2', 's3']
 
 
-def test_set_predict_files(config):
-    with pytest.raises(ValueError) as e:
-        config.set_predict_files('', '', '', '', '')
-    assert 'No initial hmm file provided' in str(e)
-
-    with pytest.raises(ValueError) as e:
-        config.set_predict_files('init', '', '', '', '')
-    assert 'No trained hmm file provided' in str(e)
-
-    with pytest.raises(ValueError) as e:
-        config.set_predict_files('init', 'trained', 'pos', 'prob', '')
-    assert 'No alignment file provided' in str(e)
-
-    with pytest.raises(ValueError) as e:
-        config.set_predict_files('init', 'trained', 'pos', 'prob', 'align')
-    assert '{strain} not found in align' in str(e)
-
-    with pytest.raises(ValueError) as e:
-        config.set_predict_files('init', 'trained', 'pos', 'prob',
-                                 'align{prefix}')
-    assert '{strain} not found in align{prefix}' in str(e)
-
-    with pytest.raises(ValueError) as e:
-        config.set_predict_files('init', 'trained', 'pos', 'prob',
-                                 'align{prefix}{strain}')
-    assert '{chrom} not found in align{prefix}{strain}' in str(e)
-
-    config.prefix = 'pre'
-    config.set_predict_files('init', 'trained', 'pos', 'prob',
-                             'align{prefix}{strain}{chrom}')
-    assert config.hmm_initial == 'init'
-    assert config.hmm_trained == 'trained'
-    assert config.positions == 'pos'
-    assert config.probabilities == 'prob'
-    assert config.alignment == 'alignpre{strain}{chrom}'
-
-    with pytest.raises(ValueError) as e:
-        config.config = {'paths': {'analysis': {'hmm_initial': 'init'}}}
-        config.set_predict_files('', '', '', '', '')
-    assert 'No trained hmm file provided' in str(e)
-
-    with pytest.raises(ValueError) as e:
-        config.config = {'paths': {'analysis': {'hmm_initial': 'init',
-                                                'hmm_trained': 'trained',
-                                                'positions': 'pos'
-                                                }}}
-        config.set_predict_files('', '', '', '', '')
-    assert 'No probabilities file provided' in str(e)
-
-    with pytest.raises(ValueError) as e:
-        config.config = {'paths': {'analysis': {'hmm_initial': 'init',
-                                                'hmm_trained': 'trained',
-                                                'positions': 'pos',
-                                                'probabilities': 'prob'
-                                                }}}
-        config.set_predict_files('', '', '', '', '')
-    assert 'No alignment file provided' in str(e)
-
-    config.config = {'paths': {'analysis': {
-        'hmm_initial': 'init',
-        'hmm_trained': 'trained',
-        'positions': 'pos',
-        'probabilities': 'prob',
-        'alignment': 'align{prefix}{strain}{chrom}'
-    }}}
-    config.set_predict_files('', '', '', '', '')
-
-    assert config.hmm_initial == 'init'
-    assert config.hmm_trained == 'trained'
-    assert config.positions == 'pos'
-    assert config.probabilities == 'prob'
-    assert config.alignment == 'alignpre{strain}{chrom}'
-
-
 def test_set_alignment(config):
-    config.set_alignment('align{strain}{chrom}')
+    config.set(alignment='align{strain}{chrom}')
     assert config.alignment == 'align{strain}{chrom}'
 
     with pytest.raises(AttributeError) as e:
-        config.set_alignment('align{prefix}{strain}{chrom}')
+        config.set(alignment='align{prefix}{strain}{chrom}')
     assert "'Configuration' object has no attribute 'prefix'" in str(e)
 
     config.prefix = 'prefix'
-    config.set_alignment('align{prefix}{strain}{chrom}')
+    config.set(alignment='align{prefix}{strain}{chrom}')
     assert config.alignment == 'alignprefix{strain}{chrom}'
-
-
-def test_set_regions_file(config):
-    with pytest.raises(ValueError) as e:
-        config.set_regions_files()
-    assert 'No region file provided' in str(e)
-
-    with pytest.raises(ValueError) as e:
-        config.set_regions_files('region')
-    assert '{state} not found in region' in str(e)
-
-    with pytest.raises(ValueError) as e:
-        config.set_regions_files('region{state}')
-    assert 'No region index file provided' in str(e)
-
-    with pytest.raises(ValueError) as e:
-        config.set_regions_files('region{state}', 'index')
-    assert '{state} not found in index' in str(e)
-
-    config.set_regions_files('region{state}', 'index{state}')
-    assert config.regions == 'region{state}'
-    assert config.region_index == 'index{state}'
-
-    config.config = {'paths': {'analysis': {'regions': 'region{state}',
-                                            'region_index': 'index{state}',
-                                            }}}
-    config.set_regions_files()
-    assert config.regions == 'region{state}'
-    assert config.region_index == 'index{state}'
-
-    # args overwrite config
-    config.set_regions_files('reg{state}', 'ind{state}')
-    assert config.regions == 'reg{state}'
-    assert config.region_index == 'ind{state}'
-
-
-def test_set_quality_file(config):
-    with pytest.raises(ValueError) as e:
-        config.set_quality_file()
-    assert 'No quality block file provided' in str(e)
-
-    with pytest.raises(ValueError) as e:
-        config.set_quality_file('qual')
-    assert '{state} not found in qual' in str(e)
-
-    config.set_quality_file('qual{state}')
-    assert config.quality_blocks == 'qual{state}'
-
-    config.config = {'paths': {'analysis': {'quality': 'qua{state}'}}}
-    config.set_quality_file()
-    assert config.quality_blocks == 'qua{state}'
 
 
 def test_set_masked_file(config):
     with pytest.raises(ValueError) as e:
-        config.set_masked_file()
-    assert 'No masked interval file provided' in str(e)
+        config.set('masks')
+    assert 'No masks provided' in str(e)
 
     with pytest.raises(ValueError) as e:
-        config.set_masked_file('mask')
+        config.set(masks='mask')
     assert '{strain} not found in mask' in str(e)
 
     with pytest.raises(ValueError) as e:
-        config.set_masked_file('mask{strain}')
+        config.set(masks='mask{strain}')
     assert '{chrom} not found in mask{strain}' in str(e)
 
-    config.set_masked_file('mask{strain}{chrom}')
+    config.set(masks='mask{strain}{chrom}')
     assert config.masks == 'mask{strain}{chrom}'
 
     config.config = {'paths': {'analysis':
                                {'masked_intervals': 'msk{strain}{chrom}'}}}
-    config.set_masked_file()
+    config.set('masks')
     assert config.masks == 'msk{strain}{chrom}'
+
+
+def test_set_filter_threshold(config):
+    with pytest.raises(ValueError) as e:
+        config.set('filter_threshold')
+    assert 'No filter_threshold provided' in str(e)
+
+    config.set(filter_threshold=0.9)
+    assert config.filter_threshold == 0.9
+
+    config.config = {'analysis_params': {'filter_threshold': 0.8}}
+    config.set('filter_threshold')
+    assert config.filter_threshold == 0.8
+
+    with pytest.raises(ValueError) as e:
+        config.set(filter_threshold='test')
+    assert 'Filter threshold is not a valid number' in str(e)
+
+
+@pytest.fixture
+def variable():
+    return Variable('test')
+
+
+def test_variable_init(variable):
+    assert variable.name == 'test'
+    assert variable.config_path == 'test'
+    assert variable.nullable is False
+    assert variable.wildcards is None
+
+    var2 = Variable('test2', 'test.path', True, 'wild')
+    assert var2.name == 'test2'
+    assert var2.config_path == 'test.path'
+    assert var2.nullable is True
+    assert var2.wildcards == 'wild'
+
+
+def test_variable_parse(variable):
+    with pytest.raises(ValueError) as e:
+        variable.parse(None)
+    assert 'No test provided' in str(e)
+
+    assert variable.parse('test', {}) == 'test'
+    assert variable.parse(None, {'test': 'test'}) == 'test'
+
+    variable.config_path = 'test.path'
+    assert variable.parse(None, {'test': {'path': 'test'}}) == 'test'
+
+    variable.nullable = True
+    assert variable.parse(None) is None
+    assert variable.parse('test') == 'test'
+
+    variable.wildcards = 'state'
+    with pytest.raises(ValueError) as e:
+        variable.parse('test')
+    assert '{state} not found in test' in str(e)
+
+    assert variable.parse('test{state}') == 'test{state}'

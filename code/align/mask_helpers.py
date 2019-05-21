@@ -1,14 +1,11 @@
-import sys
-sys.path.insert(0, '..')
 import global_params as gp
-sys.path.insert(0, '../misc')
-import read_fasta
-import write_fasta
+from misc import read_fasta
+from misc import write_fasta
+
 
 def read_intervals(fn):
-
     f = open(fn, 'r')
-    f.readline() # header
+    f.readline()  # header
     line = f.readline()
     intervals = []
     while line != '':
@@ -18,8 +15,8 @@ def read_intervals(fn):
     f.close()
     return intervals
 
-def mask(fn, masked_fn, intervals_fn):
 
+def mask(fn, masked_fn, intervals_fn):
     headers, seqs = read_fasta.read_fasta(fn)
     seq = list(seqs[0])
     intervals = read_intervals(intervals_fn)
@@ -28,4 +25,3 @@ def mask(fn, masked_fn, intervals_fn):
             seq[i] = gp.unsequenced_symbol
     seq = ''.join(seq)
     write_fasta.write_fasta(headers, [seq], masked_fn)
-

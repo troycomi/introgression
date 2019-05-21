@@ -312,6 +312,125 @@ class Summarizer():
         return ref_ind, to_process
 
 
+class Flag_Info():
+    '''
+    Collection of boolean flags for sequence summary
+    '''
+    def __init__(self):
+        self.gap_any = None
+        self.mask_any = None
+        self.unseq_any = None
+        self.hmm = None
+        self.gap = None
+        self.mask = None
+        self.unseq = None
+        self.match = None
+
+    def initialize_flags(self, number_sequences: int, number_states: int):
+        '''
+        Initialize internal flags to np arrays of false
+        '''
+        self.gap_any = np.zeros((number_sequences), bool)
+        self.mask_any = np.zeros((number_sequences), bool)
+        self.unseq_any = np.zeros((number_sequences), bool)
+        self.gap = np.zeros((number_sequences, number_states), bool)
+        self.mask = np.zeros((number_sequences, number_states), bool)
+        self.unseq = np.zeros((number_sequences, number_states), bool)
+        self.match = np.zeros((number_sequences, number_states), bool)
+
+    def add_sequence_flags(self, other: Flag_Info, state: int):
+        '''
+        Join the other flag info with this info by replacing values
+        in the gap, unseq, and match arrays and performing OR with anys
+        '''
+        # only write the first time
+        if state == 0:
+            self.hmm = other.hmm
+
+        self.gap_any = np.logical_or(self.gap_any, other.gap)
+        self.unseq_any = np.logical_or(self.unseq_any, other.unseq)
+
+        self.gap[:, state] = other.gap
+        self.unseq[:, state] = other.unseq
+        self.match[:, state] = other.match
+
+    def add_mask_flags(self, other: Flag_Info, state: int):
+        '''
+        Join the other flag info with this by replacing values in mask and
+        performing an OR with mask_any
+        '''
+        self.mask_any = np.logical_or(self.mask_any, other.mask)
+        self.mask[:, state] = other.mask
+
+    def encode_info(self,
+                    master_ind: int,
+                    predict_ind: int) -> str:
+        '''
+        Summarize info flags into a string. master_ind is the index of
+        the master reference state. predict_ind is the index of the predicted
+        state.  The return string is encoded for each position as:
+         '-': if either master or predict has a gap
+         '_': if either master or predict is masked
+         '.': if any state has a match
+         'b': both predict and master match
+         'c': master matches but not predict
+         'p': predict matches but not master
+         'x': no other condition applies
+         if the position is in the hmm_flag
+          it will be capitalized for x, p, c, or b
+        in order of precidence, e.g. if a position satisfies both '-' and '.',
+        it will be '-'.
+        '''
+
+        if predict_ind >= self.match.shape[1]:
+            return self.encode_unknown_info(master_ind)
+
+        decoder = np.array(list('xXpPcCbB._-'))
+        indices = np.zeros(self.match.shape[0], int)
+
+        indices[self.match[:, predict_ind]] += 2  # x to p if true
+        indices[self.match[:, master_ind]] += 4  # x to c, p to b
+        indices[self.hmm] += 1  # to upper
+
+        matches = np.all(self.match, axis=1)
+        indices[matches] = 8  # .
+        indices[np.any(
+            self.mask[:, [master_ind, predict_ind]],
+            axis=1)] = 9  # _
+        indices[np.any(
+            self.gap[:, [master_ind, predict_ind]],
+            axis=1)] = 10  # -
+
+        return ''.join(decoder[indices])
+
+    def encode_unknown_info(self,
+                            master_ind: int) -> str:
+        '''
+        Summarize info dictionary into a string for unknown state.
+        master_ind is the index of the master reference state.
+        The return string is encoded as each position as:
+         '-': if any state has a gap
+         '_': if any state has a mask
+         '.': all states match
+         'x': master matches
+         'X': no other condition applies
+        in order of precidence, e.g. if a position satisfies both '-' and '.',
+        it will be '-'.
+        '''
+
+        # used with indices to decode result
+        decoder = np.array(list('Xx._-'))
+        indices = np.zeros(self.gap_any.shape, int)
+
+        indices[self.match[:, master_ind]] = 1  # x
+        matches = np.all(self.match, axis=1)
+        indices[matches] = 2  # .
+        indices[self.mask_any] = 3  # _
+        indices[self.gap_any] = 4  # -
+
+        return ''.join(decoder[indices])
+
+
 class Sequence_Analyzer():
     '''
     Performs handling of masking, reading, and analyzing sequence data for
@@ -466,10 +585,10 @@ class Sequence_Analyzer():
                         offset: int,
                         exclude_sites1: List[int],
                         exclude_sites2: List[int]) -> Tuple[
-                            int, int, Flag_info]:
+                            int, int, Flag_Info]:
         '''
-        Compare two sequences and provide statistics of their overlap considering
-        only the included sites.
+        Compare two sequences and provide statistics of their overlap
+        considering only the included sites.
         Takes two sequences, an offset applied to each excluded sites list
         Returns:
          -total number of matching sites in non-excluded sites. A position is
@@ -631,125 +750,6 @@ class Sequence_Analyzer():
             raise ValueError(err)
 
         return slice_start, slice_end
-
-
-class Flag_Info():
-    '''
-    Collection of boolean flags for sequence summary
-    '''
-    def __init__(self):
-        self.gap_any = None
-        self.mask_any = None
-        self.unseq_any = None
-        self.hmm = None
-        self.gap = None
-        self.mask = None
-        self.unseq = None
-        self.match = None
-
-    def initialize_flags(self, number_sequences: int, number_states: int):
-        '''
-        Initialize internal flags to np arrays of false
-        '''
-        self.gap_any = np.zeros((number_sequences), bool)
-        self.mask_any = np.zeros((number_sequences), bool)
-        self.unseq_any = np.zeros((number_sequences), bool)
-        self.gap = np.zeros((number_sequences, number_states), bool)
-        self.mask = np.zeros((number_sequences, number_states), bool)
-        self.unseq = np.zeros((number_sequences, number_states), bool)
-        self.match = np.zeros((number_sequences, number_states), bool)
-
-    def add_sequence_flags(self, other: Flag_Info, state: int):
-        '''
-        Join the other flag info with this info by replacing values
-        in the gap, unseq, and match arrays and performing OR with anys
-        '''
-        # only write the first time
-        if state == 0:
-            self.hmm = other.hmm
-
-        self.gap_any = np.logical_or(self.gap_any, other.gap)
-        self.unseq_any = np.logical_or(self.unseq_any, other.unseq)
-
-        self.gap[:, state] = other.gap
-        self.unseq[:, state] = other.unseq
-        self.match[:, state] = other.match
-
-    def add_mask_flags(self, other: Flag_Info, state: int):
-        '''
-        Join the other flag info with this by replacing values in mask and
-        performing an OR with mask_any
-        '''
-        self.mask_any = np.logical_or(self.mask_any, other.mask)
-        self.mask[:, state] = other.mask
-
-    def encode_info(self,
-                    master_ind: int,
-                    predict_ind: int) -> str:
-        '''
-        Summarize info flags into a string. master_ind is the index of
-        the master reference state. predict_ind is the index of the predicted
-        state.  The return string is encoded for each position as:
-         '-': if either master or predict has a gap
-         '_': if either master or predict is masked
-         '.': if any state has a match
-         'b': both predict and master match
-         'c': master matches but not predict
-         'p': predict matches but not master
-         'x': no other condition applies
-         if the position is in the hmm_flag
-          it will be capitalized for x, p, c, or b
-        in order of precidence, e.g. if a position satisfies both '-' and '.',
-        it will be '-'.
-        '''
-
-        if predict_ind >= self.match.shape[1]:
-            return self.encode_unknown_info(master_ind)
-
-        decoder = np.array(list('xXpPcCbB._-'))
-        indices = np.zeros(self.match.shape[0], int)
-
-        indices[self.match[:, predict_ind]] += 2  # x to p if true
-        indices[self.match[:, master_ind]] += 4  # x to c, p to b
-        indices[self.hmm] += 1  # to upper
-
-        matches = np.all(self.match, axis=1)
-        indices[matches] = 8  # .
-        indices[np.any(
-            self.mask[:, [master_ind, predict_ind]],
-            axis=1)] = 9  # _
-        indices[np.any(
-            self.gap[:, [master_ind, predict_ind]],
-            axis=1)] = 10  # -
-
-        return ''.join(decoder[indices])
-
-    def encode_unknown_info(self,
-                            master_ind: int) -> str:
-        '''
-        Summarize info dictionary into a string for unknown state.
-        master_ind is the index of the master reference state.
-        The return string is encoded as each position as:
-         '-': if any state has a gap
-         '_': if any state has a mask
-         '.': all states match
-         'x': master matches
-         'X': no other condition applies
-        in order of precidence, e.g. if a position satisfies both '-' and '.',
-        it will be '-'.
-        '''
-
-        # used with indices to decode result
-        decoder = np.array(list('Xx._-'))
-        indices = np.zeros(self.gap_any.shape, int)
-
-        indices[self.match[:, master_ind]] = 1  # x
-        matches = np.all(self.match, axis=1)
-        indices[matches] = 2  # .
-        indices[self.mask_any] = 3  # _
-        indices[self.gap_any] = 4  # -
-
-        return ''.join(decoder[indices])
 
 
 class Region_Database():

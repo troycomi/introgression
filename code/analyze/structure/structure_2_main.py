@@ -1,15 +1,8 @@
 import sys
 import os
-import gzip
 import predict
 from collections import defaultdict
-import gene_predictions
-sys.path.insert(0, '..')
 import global_params as gp
-sys.path.insert(0, '../misc/')
-import read_fasta
-import read_table
-import seq_functions
 
 args = predict.process_predict_args(sys.argv[2:])
 
@@ -23,18 +16,18 @@ if not os.path.isdir(out_dir_run):
     os.makedirs(out_dir_run + '/population_ranges')
 
 # maybe getting strains should be simpler
-strains = [line.split('\t')[0] for line in \
-           open(gp.analysis_out_dir_absolute + args['tag'] + \
+strains = [line.split('\t')[0] for line in
+           open(gp.analysis_out_dir_absolute + args['tag'] +
                 '/state_counts_by_strain.txt', 'r').readlines()[1:]]
 
 gp_dir = '../'
 
-nuc_to_int = {'a':1, 't':2, 'g':3, 'c':4}
+nuc_to_int = {'a': 1, 't': 2, 'g': 3, 'c': 4}
 
-##======
+# ======
 # use program structure to find population proportion using either
 # unlinked tagsnps from ldselect, or just all snps
-##======
+# ======
 
 use_all_snps = True
 
@@ -93,12 +86,13 @@ for line in lines:
 
 f = open(out_dir_run + 'structure_input_run' + run_id + '.txt', 'w')
 for chrm in gp.chrms:
-    f.write('\t\t\t' + '\t'.join([chrm + '_' + str(x) \
-                              for x in sorted(all_snps[chrm].keys())]))
+    f.write('\t\t\t' + '\t'.join([chrm + '_' + str(x)
+                                  for x in sorted(all_snps[chrm].keys())]))
 f.write('\n')
 for chrm in gp.chrms:
-    f.write('\t\t\t' + '\t'.join([str(map_distances[chrm][x]) \
-                              for x in sorted(map_distances[chrm].keys())]))
+    f.write('\t\t\t' + '\t'.join(
+        [str(map_distances[chrm][x])
+         for x in sorted(map_distances[chrm].keys())]))
 f.write('\n')
 
 for strain in strains:
@@ -118,7 +112,8 @@ num_snps = sum([len(all_snps[chrm]) for chrm in gp.chrms])
 """
 os.system(gp.structure_install_path + 'structure -L ' + str(num_snps) + \
           ' -K 6 -i ' + out_dir_run + 'structure_input_run' + run_id + \
-          '.txt -o ' + out_dir_run + 'structure_output_k6_run' + run_id + '.txt')
+          '.txt -o ' + out_dir_run + 'structure_output_k6_run'
+          + run_id + '.txt')
 
 os.system('mv ' + out_dir_run + 'structure_output_k6_run' + \
           run_id + '.txt_ss ' + out_dir_run + \
@@ -136,7 +131,7 @@ f = open(out_dir_run + 'structure_output_k6_run' + run_id + '.txt', 'r')
 line = f.readline()
 while line != "Inferred ancestry of individuals:\n":
     line = f.readline()
-f.readline() # column headings
+f.readline()  # column headings
 line = f.readline()
 f_out.write('strain\tpopulation\tfraction\tindex\n')
 while line != "\n":
@@ -149,7 +144,7 @@ while line != "\n":
             ind = i
             break
     for i in range(len(fracs)):
-        f_out.write(strain + '\t' + str(i + 1) + '\t' + \
+        f_out.write(strain + '\t' + str(i + 1) + '\t' +
                     str(fracs[i]) + '\t' + str(ind + 1) + '\n')
     line = f.readline()
 f.close()
@@ -161,7 +156,8 @@ f_out.close()
 f = open(out_dir_run + 'structure_output_ss_k6_run' + run_id + '.txt', 'r')
 k = 6
 
-# read in posterior probabilities for each strain locus being in each population
+# read in posterior probabilities for
+# each strain locus being in each population
 line = f.readline()
 while line.strip() == '\n':
     line = f.readline()
@@ -187,8 +183,6 @@ while line != '':
     line = f.readline()
 f.close()
 
-
-
 # TODO at some point associate numbered populations with logical names
 # (i.e. ones from strope et al)
 
@@ -198,17 +192,17 @@ f.close()
 # population_ranges_strain_chrX.txt
 # start end popx
 # start end popx/popy
-# start end 
+# start end
 
-chrm_lengths = [line[:-1].split('\t') for line in \
-                     open(out_dir + 'chromosome_lengths.txt', 'r').readlines()]
-chrm_lengths = dict(zip([x[0] for x in chrm_lengths], \
+chrm_lengths = [line[:-1].split('\t') for line in
+                open(out_dir + 'chromosome_lengths.txt', 'r').readlines()]
+chrm_lengths = dict(zip([x[0] for x in chrm_lengths],
                         [int(x[1]) for x in chrm_lengths]))
 
 for strain in strains:
     for chrm in gp.chrms:
         ranges = []
-        snps =  sorted(strain_snp_pop[strain][chrm].keys())
+        snps = sorted(strain_snp_pop[strain][chrm].keys())
         start = snps[0]
         end = start
         previous_pop = strain_snp_pop[strain][chrm][start]
@@ -221,7 +215,8 @@ for strain in strains:
 
             else:
                 ranges.append((start, end, previous_pop))
-                ranges.append((end + 1, snp - 1, previous_pop + '/' + current_pop))
+                ranges.append((end + 1, snp - 1,
+                               previous_pop + '/' + current_pop))
                 start = snp
                 end = snp
                 previous_pop = current_pop
@@ -231,7 +226,8 @@ for strain in strains:
         ranges.append((end + 1, chrm_lengths[chrm], 'end'))
 
         # TODO file location
-        f = open(out_dir_run + 'population_ranges/population_ranges_' + strain + '_chr' + chrm + '_run' + run_id + '.txt', 'w')
+        f = open(out_dir_run + 'population_ranges/population_ranges_' +
+                 strain + '_chr' + chrm + '_run' + run_id + '.txt', 'w')
         for r in ranges:
             f.write('\t'.join([str(x) for x in r]) + '\n')
         f.close()

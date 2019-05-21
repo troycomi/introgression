@@ -1,7 +1,5 @@
 # lol because i'm so bad at R
 
-import sys
-sys.path.insert(0, '..')
 import global_params as gp
 
 tag = 'u3_i.001_tv_l1000_f.01'
@@ -16,7 +14,7 @@ d_sums = {}
 d2_sums = {}
 for line in lines[1:]:
     chrm = line[0]
-    if not d_sums.has_key(chrm):
+    if chrm not in d_sums:
         d_sums[chrm] = 0
         d2_sums[chrm] = 0
         d[chrm] = {}
@@ -53,24 +51,24 @@ for chrm in gp.chrms + ['all']:
                     fab += c
     try:
         fo = str(float(fo)/d_sums[chrm])
-    except:
+    except ValueError:
         fo = 'NaN'
     try:
         fob = str(float(fob)/d2_sums[chrm])
-    except:
+    except ValueError:
         fob = 'NaN'
     try:
         fa = str(float(fa)/d_sums[chrm])
-    except:
+    except ValueError:
         fa = 'NaN'
     try:
         fab = str(float(fab)/d2_sums[chrm])
-    except:
+    except ValueError:
         fab = 'NaN'
 
-    f.write(chrm + '\tone\tpolymorphic\t' + fo + '\t' + str(d_sums[chrm]) + '\n')
-    f.write(chrm + '\tone\tbiallelic\t' + fob + '\t' + str(d2_sums[chrm]) + '\n')
-    f.write(chrm + '\tall\tpolymorphic\t' + fa + '\t' + str(d_sums[chrm]) + '\n')
-    f.write(chrm + '\tall\tbiallelic\t' + fab + '\t' + str(d2_sums[chrm]) + '\n')
+    f.write(f'{chrm}\tone\tpolymorphic\t{fo}\t{d_sums[chrm]}\n')
+    f.write(f'{chrm}\tone\tbiallelic\t{fob}\t{d2_sums[chrm]}\n')
+    f.write(f'{chrm}\tall\tpolymorphic\t{fa}\t{d_sums[chrm]}\n')
+    f.write(f'{chrm}\tall\tbiallelic\t{fab}\t{d2_sums[chrm]}\n')
 
 f.close()

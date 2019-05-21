@@ -1,9 +1,6 @@
 import gzip
 import gene_predictions
-import sys
 import global_params as gp
-sys.path.insert(0, '../misc/')
-
 
 
 def get_block_by_site(all_regions, seq):
@@ -19,8 +16,8 @@ def get_block_by_site(all_regions, seq):
     return introgressed_by_site
 
 
-def write_predictions_annotated(alignment_headers, alignment_seqs, master, \
-                                strain_labels, match_by_site, \
+def write_predictions_annotated(alignment_headers, alignment_seqs, master,
+                                strain_labels, match_by_site,
                                 gene_by_site, block_by_site, masked, fn):
 
     f = gzip.open(fn, 'wb')
@@ -36,10 +33,10 @@ def write_predictions_annotated(alignment_headers, alignment_seqs, master, \
     individual_indices = [0] * num_seqs
 
     # header
-    f.write('ps_ref' + sep + 'ps_strain' + sep + \
-            sep.join(strain_labels) + sep + \
-            'match' + sep + \
-            'gene' + sep + 'block' + sep + \
+    f.write('ps_ref' + sep + 'ps_strain' + sep +
+            sep.join(strain_labels) + sep +
+            'match' + sep +
+            'gene' + sep + 'block' + sep +
             sep.join([lab + '_masked' for lab in strain_labels]) + '\n')
 
     lines = []
@@ -57,7 +54,7 @@ def write_predictions_annotated(alignment_headers, alignment_seqs, master, \
             ind_ref += 1
             ps_ref = str(ind_ref)
         line += ps_ref + sep
-        
+
         # index in strain
         ps_strain = None
         if alignment_seqs[-1][i] == gp.gap_symbol:
@@ -76,7 +73,7 @@ def write_predictions_annotated(alignment_headers, alignment_seqs, master, \
             line += match_by_site[r][i]
         line += sep
 
-        if gene_by_site[i] != None:
+        if gene_by_site[i] is not None:
             line += gene_by_site[i]
         line += sep
 
@@ -87,16 +84,17 @@ def write_predictions_annotated(alignment_headers, alignment_seqs, master, \
             line += sep
             if alignment_seqs[si][i] != gp.gap_symbol:
                 # TODO update n to x
-                if masked[si][individual_indices[si]] == 'n': #gp.masked_symbol:
+                if masked[si][individual_indices[si]] == 'n':  # masked
                     line += gp.masked_symbol
                 individual_indices[si] += 1
-            
+
         line += '\n'
-        
+
         lines.append(line)
     f.writelines(lines)
 
     f.close()
+
 
 # TODO give this a more general name/place
 def read_predictions_annotated(fn):
@@ -109,10 +107,7 @@ def read_predictions_annotated(fn):
         line = line[:-1].split(sep)
         for i in range(len(labels)):
             d[labels[i]].append(line[i])
-        #d[line[0]] = dict(zip(labels[1:], line[1:]))
+        # d[line[0]] = dict(zip(labels[1:], line[1:]))
         line = f.readline()
     f.close()
     return d
-
-
-

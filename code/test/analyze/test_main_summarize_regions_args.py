@@ -39,7 +39,7 @@ def test_empty(runner, mocker):
             '--config config.yaml summarize-regions')
 
         assert result.exit_code != 0
-        assert str(result.exception) == 'No labeled block file provided'
+        assert str(result.exception) == 'No labeled_blocks provided'
         assert mock_log.call_args_list == [
             mocker.call('Verbosity set to WARNING'),
             mocker.call('Read in 1 config file'),
@@ -70,7 +70,7 @@ def test_labeled(runner, mocker):
             '--config config.yaml summarize-regions --labeled {state}lbl.txt')
 
         assert result.exit_code != 0
-        assert str(result.exception) == 'No quality block file provided'
+        assert str(result.exception) == 'No quality_blocks provided'
         assert mock_log.call_args_list == [
             mocker.call('Verbosity set to WARNING'),
             mocker.call('Read in 1 config file'),
@@ -103,7 +103,7 @@ def test_quality(runner, mocker):
             '--quality {state}qual.txt')
 
         assert result.exit_code != 0
-        assert str(result.exception) == 'No masked interval file provided'
+        assert str(result.exception) == 'No masks provided'
         assert mock_log.call_args_list == [
             mocker.call('Verbosity set to WARNING'),
             mocker.call('Read in 1 config file'),
@@ -137,7 +137,7 @@ def test_masked(runner, mocker):
             '--quality {state}qual.txt --masks {strain}_{chrom}mask.txt')
 
         assert result.exit_code != 0
-        assert str(result.exception) == 'No alignment file provided'
+        assert str(result.exception) == 'No alignment provided'
         assert mock_log.call_args_list == [
             mocker.call('Verbosity set to WARNING'),
             mocker.call('Read in 1 config file'),
@@ -174,7 +174,7 @@ def test_alignment(runner, mocker):
             '--alignment {strain}_{chrom}_align.txt')
 
         assert result.exit_code != 0
-        assert str(result.exception) == 'No positions file provided'
+        assert str(result.exception) == 'No positions provided'
         assert mock_log.call_args_list == [
             mocker.call('Verbosity set to WARNING'),
             mocker.call('Read in 1 config file'),
@@ -194,7 +194,7 @@ def test_alignment(runner, mocker):
             '--alignment {prefix}_{strain}_{chrom}_align.txt')
 
         assert result.exit_code != 0
-        assert str(result.exception) == 'No positions file provided'
+        assert str(result.exception) == 'No positions provided'
         assert mock_log.call_args_list == [
             mocker.call('Verbosity set to WARNING'),
             mocker.call('Read in 1 config file'),
@@ -232,7 +232,7 @@ def test_positions(runner, mocker):
             '--alignment {strain}_{chrom}_align.txt --positions pos.txt')
 
         assert result.exit_code != 0
-        assert str(result.exception) == 'No region file provided'
+        assert str(result.exception) == 'No regions provided'
         assert mock_log.call_args_list == [
             mocker.call('Verbosity set to WARNING'),
             mocker.call('Read in 1 config file'),
@@ -272,7 +272,7 @@ def test_region(runner, mocker):
         )
 
         assert result.exit_code != 0
-        assert str(result.exception) == 'No region index file provided'
+        assert str(result.exception) == 'No region_index provided'
         assert mock_log.call_args_list == [
             mocker.call('Verbosity set to WARNING'),
             mocker.call('Read in 1 config file'),

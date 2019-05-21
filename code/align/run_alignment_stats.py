@@ -1,8 +1,11 @@
+import sys
 import os
-from alignment_stats import *
-from align_helpers import *
-sys.path.insert(0, '..')
+from align.alignment_stats import (num_strains_aligned_by_site,
+                                   fraction_strains_aligned,
+                                   frac_aligned_to_reference)
+from align.align_helpers import (flatten, get_strains)
 import global_params as gp
+from misc import read_fasta
 
 # gives info related to how good an alignment is:
 # - number of sites where n, ..., 3, 2, 1, genomes aligned
@@ -14,10 +17,11 @@ s = get_strains(flatten(gp.non_ref_dirs.values()))
 strain, d = s[int(sys.argv[1])]
 gp_dir = '../'
 
-fn_start = gp_dir + gp.alignments_dir + '_'.join(gp.alignment_ref_order) + '_' + strain + '_chr'
+fn_start = (gp_dir + gp.alignments_dir + '_'.join(gp.alignment_ref_order) +
+            '_' + strain + '_chr')
 
 for chrm in gp.chrms:
-    print chrm
+    print(chrm)
     sys.stdout.flush()
 
     if not os.path.isfile(fn_start + chrm + '_mafft.maf'):
@@ -30,8 +34,9 @@ for chrm in gp.chrms:
 
     # number of sites where n,...,3,2,1 genomes aligned
     num_strains_by_site = num_strains_aligned_by_site(seqs)
-    f_out.write(\
-        '# histogram of number of strains aligned across all alignment columns\n')
+    f_out.write(
+        '# histogram of number of strains '
+        'aligned across all alignment columns\n')
     for n in range(len(num_strains_by_site)):
         f_out.write(str(n) + ',' + str(num_strains_by_site[n]) + '\n')
     f_out.write('\n')
@@ -44,7 +49,8 @@ for chrm in gp.chrms:
     # length of chromosomes
     f_out.write('chromosome aligned lengths\n')
     for n in range(len(seqs)):
-        f_out.write(headers[n][1:].strip().split(' ')[0] + ',' + str(seq_lengths[n]) + '\n')
+        f_out.write(headers[n][1:].strip().split(' ')[0] +
+                    ',' + str(seq_lengths[n]) + '\n')
     f_out.write('\n')
 
     # using each genome as reference, fraction of other genomes aligned
@@ -52,7 +58,7 @@ for chrm in gp.chrms:
     frac_aligned_to_ref = frac_aligned_to_reference(seqs, seq_lengths)
     for ref in range(len(seqs)):
         f_out.write(headers[ref][1:].strip().split(' ')[0])
-        for other in range(len(seqs)): 
+        for other in range(len(seqs)):
             f_out.write(',' + str(frac_aligned_to_ref[ref][other]))
         f_out.write('\n')
     f_out.write('\n')
