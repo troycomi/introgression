@@ -14,7 +14,7 @@ for fn in fns:
         line = line.strip().split('\t')
         for i in range(len(line)):
             fnew.write(line[i])
-            if (i+1)%ncols == 0:
+            if (i+1) % ncols == 0:
                 fnew.write('\n')
             else:
                 fnew.write('\t')

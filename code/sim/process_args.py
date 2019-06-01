@@ -1,7 +1,6 @@
-import sys
 import concordance_functions
-sys.path.append('..')
 import global_params as gp
+
 
 def parse_topology_helper(t, factor=1):
     if '(' not in t:
@@ -12,7 +11,7 @@ def parse_topology_helper(t, factor=1):
     # if left subtree is just a label, easier to split into left and
     # right
     if t[1] != '(':
-        comma_ind = t.find(',') 
+        comma_ind = t.find(',')
         left = t[1:comma_ind]
         right = t[comma_ind+1:t.rfind(')')]
     # otherwise, have to figure out where left subtree ends by
@@ -31,9 +30,10 @@ def parse_topology_helper(t, factor=1):
         right = t[i+1:t.rfind(')')]
 
     time = float(t[t.rfind(':')+1:]) * factor
-    return [parse_topology_helper(left, factor), \
-                parse_topology_helper(right, factor), \
-                time]
+    return [parse_topology_helper(left, factor),
+            parse_topology_helper(right, factor),
+            time]
+
 
 # parses a topology that also includes divergence times
 # e.g. '(cer,par):375000000,bay):1125000000'
@@ -41,9 +41,10 @@ def parse_topology_helper(t, factor=1):
 def parse_topology(t, factor=1):
     return parse_topology_helper(t, factor)
 
+
 def process_args(arg_list, i=1, print_args=True):
 
-    print arg_list
+    print(arg_list)
 
     # store all arguments in dictionary
     d = {}
@@ -61,9 +62,10 @@ def process_args(arg_list, i=1, print_args=True):
     i += 1
 
     # species names
-    d['species'] = concordance_functions.get_labels(parse_topology(d['topology']))
-    print d['topology']
-    print d['species']
+    d['species'] = concordance_functions.get_labels(
+        parse_topology(d['topology']))
+    print(d['topology'])
+    print(d['species'])
     assert len(d['species']) == 2 or len(d['species']) == 3, d['species']
 
     # ...for the species with introgression
@@ -108,7 +110,8 @@ def process_args(arg_list, i=1, print_args=True):
     assert d['N0_species_to'] == d['N0_species_from1'] and \
         d['N0_species_to'] == d['N0_species_from2']
 
-    d['topology'] = parse_topology(d['topology'], 1/float(4 * d['N0_species_to']))
+    d['topology'] = parse_topology(d['topology'],
+                                   1/float(4 * d['N0_species_to']))
 
     # 13,500 sites to get about 10% with one recombination event, .3% with
     # more than one (based on poisson(.1), 1 recombination per chromosome
@@ -119,12 +122,13 @@ def process_args(arg_list, i=1, print_args=True):
     # parameter is recombination rate between adjacent bp per
     # generation should probably be 1/750000 + 6.1 * 10^-6 = 7.425 *
     # 10^-6 (where 750000 is average chr size) recombination rate
-    d['rho'] = 4 * d['N0_species_to'] * float(arg_list[i]) * (d['num_sites'] - 1)
+    d['rho'] = 4 * d['N0_species_to'] * \
+        float(arg_list[i]) * (d['num_sites'] - 1)
     i += 1
 
     d['outcross_rate'] = float(arg_list[i])
     i += 1
-    
+
     d['rho'] *= d['outcross_rate']
 
     d['theta'] = gp.mu * 4 * d['num_sites'] * d['N0_species_to']
@@ -153,12 +157,13 @@ def process_args(arg_list, i=1, print_args=True):
 
     if print_args:
         for key in d.keys():
-            print key, d[key]
+            print(key, d[key])
 
     return d, i
-    
+
+
 def process_args_by_tag(fn, tag):
-    
+
     f = open(fn, 'r')
     line = f.readline()
     args = None

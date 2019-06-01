@@ -5,12 +5,12 @@ from typing import List, Dict, Tuple
 # given fractional positions for snvs and length of sequence l,
 # determine integer positions; if allow_multi_hit is true, easy but if
 # not, shift them around to include all the snvs
-def integer_positions(positions, l, allow_multi_hit = False):
+def integer_positions(positions, l, allow_multi_hit=False):
 
     int_positions = [int(x * l) for x in positions]
     if allow_multi_hit:
         return int_positions
-    
+
     assert(len(positions) <= l)
 
     # keep first position
@@ -20,7 +20,7 @@ def integer_positions(positions, l, allow_multi_hit = False):
     for p in int_positions[1:]:
         new_p = p
         n = 1
-        add = True # adding or substracting (right or left)
+        add = True  # adding or substracting (right or left)
         while new_p in a or new_p < 0 or new_p >= l:
             if add:
                 new_p = p + n
@@ -38,12 +38,12 @@ def parse_ms_tree_helper(t):
         colon_ind = t.find(':')
         # index from 0 instead of 1
         return [int(t[:colon_ind]) - 1, float(t[colon_ind+1:])]
-        #return [int(t[:colon_ind]) - 1, Decimal(t[colon_ind+1:])]
+        # return [int(t[:colon_ind]) - 1, Decimal(t[colon_ind+1:])]
     left = ''
     right = ''
     i = -1
     if t[1] != '(':
-        comma_ind = t.find(',') 
+        comma_ind = t.find(',')
         left = t[1:comma_ind]
         right = t[comma_ind+1:t.rfind(')')]
     else:
@@ -60,7 +60,7 @@ def parse_ms_tree_helper(t):
         right = t[i+1:t.rfind(')')]
 
     time = float(t[t.rfind(':')+1:])
-    #time = Decimal(t[t.rfind(':')+1:])
+    # time = Decimal(t[t.rfind(':')+1:])
     return [parse_ms_tree_helper(left), parse_ms_tree_helper(right), time]
 
 
@@ -100,7 +100,8 @@ def read_one_sim(f, num_sites, num_samples):
     # convert positions to integers
     # (allow sites to be hit multiple times because that seems reasonable)
     # (zero-indexed)
-    sim['positions'] = integer_positions(positions, num_sites, allow_multi_hit=True)
+    sim['positions'] = integer_positions(positions,
+                                         num_sites, allow_multi_hit=True)
     # read in sequences (at this point only sites that are polymorphic)
     seqs = []
     for i in range(num_samples):
@@ -166,10 +167,9 @@ def write_introgression(state_seq, f, rep, states):
         d[ind] = {}
         for p in range(len(state_seq[ind])):
             current_species = state_seq[ind][p]
-            if current_species != species:
-                if not d[ind].has_key(current_species):
-                    d[ind][current_species] = []
-                d[ind][current_species].append(p)
+            if current_species not in d[ind]:
+                d[ind][current_species] = []
+            d[ind][current_species].append(p)
 
     f.write('rep ' + str(rep) + '\n')
 
@@ -184,8 +184,8 @@ def write_introgression(state_seq, f, rep, states):
 
 def read_introgression(f, line, states):
     # inverse of write_introgression function above
-    
-    d = {} # keyed by individual, then strain, list of sites
+
+    d = {}  # keyed by individual, then strain, list of sites
     assert line.startswith('rep'), line
     rep = int(line[len('rep '):-1])
     # process each individual
@@ -201,7 +201,7 @@ def read_introgression(f, line, states):
             d_ind[species] = [int(i) for i in sites.split(',')]
         d[ind] = d_ind
         line = f.readline()
-                
+
     return d, rep, line
 
 
@@ -228,8 +228,8 @@ def write_introgression_blocks(state_seq_blocks, f, rep, states):
 
 def read_introgression_blocks(f, line, states):
     # inverse of write_introgression_blocks function above
-    
-    d = {} # keyed by individual, then species, list of (start, end)
+
+    d = {}  # keyed by individual, then species, list of (start, end)
     assert line.startswith('rep'), line
     rep = int(line[len('rep '):-1])
     # process each individual
@@ -243,19 +243,19 @@ def read_introgression_blocks(f, line, states):
         for s in x[1:]:
             species, blocks = s.split(':')
             blocks = blocks.split(',')
-            blocks = filter(lambda x: x != '', blocks) # a lil janky
+            blocks = filter(lambda x: x != '', blocks)  # a lil janky
             for block in blocks:
                 block_start, block_end = block.split('-')
                 d_ind[species].append((int(block_start), int(block_end)))
         d[ind] = d_ind
         line = f.readline()
-                
+
     return d, rep, line
 
 
 def unblock(blocks, num_sites):
     # blocks is keyed by individual, then species, list of (start, end)
-    d = {} # keyed by individual, list of species, one for each site
+    d = {}  # keyed by individual, list of species, one for each site
     for ind in blocks.keys():
         d[ind] = ['None' for x in range(num_sites)]
         for state in blocks[ind].keys():
@@ -269,7 +269,7 @@ def write_state_probs(probs, f, rep):
 
     # probs is keyed by individual, list of sites, each site dic keyed
     # by state
-    
+
     # file format is:
     # rep 0
     # 2\tcer:.1,.2,.3\tpar:.9,.8,.7
@@ -282,7 +282,7 @@ def write_state_probs(probs, f, rep):
         f.write(str(ind))
         for state in probs[ind][0].keys():
             f.write('\t' + state + ':')
-            probs_string = ','.join(["{0:.5f}".format(site[state]) \
+            probs_string = ','.join(["{0:.5f}".format(site[state])
                                      for site in probs[ind]])
             f.write(probs_string)
         f.write('\n')
@@ -291,7 +291,7 @@ def write_state_probs(probs, f, rep):
 
 def read_state_probs(f, line):
 
-    d = {} # keyed by individual, then species, list of probs
+    d = {}  # keyed by individual, then species, list of probs
     assert line.startswith('rep'), line
     rep = int(line[len('rep '):-1])
     # process each individual
@@ -306,7 +306,7 @@ def read_state_probs(f, line):
             d_ind[species] = probs
         d[ind] = d_ind
         line = f.readline()
-                
+
     return d, rep, line
 
 
@@ -331,12 +331,13 @@ def fill_seq(seq, polymorphic_sites, nsites, fill):
 
 # add in the nonpolymorphic sites
 def fill_seqs(polymorphic_seqs, polymorphic_sites, nsites, fill):
-    
+
     # note that polymorphic sites can have duplicates
     seqs_filled = []
     for seq in polymorphic_seqs:
         s = fill_seq(seq, polymorphic_sites, nsites, fill)
-        seqs_filled.append(''.join(s)) # TODO should return this as list instead
+        # TODO should return this as list instead
+        seqs_filled.append(''.join(s))
     return seqs_filled
 
 

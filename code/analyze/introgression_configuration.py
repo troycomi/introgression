@@ -29,6 +29,8 @@ class Configuration():
             'hmm_trained',
             'positions',
             'probabilities',
+            'strain_info',
+            'state_counts',
         ]
         var_list = [
             Variable('chromosomes'),

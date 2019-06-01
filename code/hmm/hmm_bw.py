@@ -23,7 +23,7 @@ class HMM:
     def set_observed_states(self, states: List[str]) -> None:
         '''
         Sets the observed states of the HMM to the supplied list of strings
-        If not supplied will set to list of keys provided by emissions 
+        If not supplied will set to list of keys provided by emissions
         '''
         self.observed_states = states
 
@@ -87,7 +87,8 @@ class HMM:
         '''
 
         self.initial_p = np.array(initial_p)
-        assert np.isclose(np.sum(initial_p), 1), f"{initial_p} {sum(initial_p)}"
+        assert np.isclose(np.sum(initial_p), 1), \
+            f"{initial_p} {sum(initial_p)}"
 
     def print_results(self, iterations: int, LL: float) -> None:
         '''
@@ -327,7 +328,7 @@ class HMM:
 
     def calculate_max_states(self) -> Tuple[np.array, np.array]:
         '''
-        Find the maximum likelihood hidden states and the corresponding 
+        Find the maximum likelihood hidden states and the corresponding
         log probability for each state.
         Returned tuple is (probability, states)
         '''

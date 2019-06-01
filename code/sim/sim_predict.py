@@ -3,9 +3,11 @@ import itertools
 from sim import sim_process
 import global_params as gp
 from typing import List
+from hmm import hmm_bw
+
 
 def process_args(arg_list, sim_args, i=1):
-    
+
     d = {}
 
     d['tag'] = arg_list[i]
@@ -47,15 +49,14 @@ def process_args(arg_list, sim_args, i=1):
     # the species in states correspond to the indices of the references
     # (and the sequence codings later); ACTUALLY just force the unknown
     # species to come last
-    if sim_args['species_from2'] != None:
+    if sim_args['species_from2'] is not None:
         assert d['has_ref_from1']
-
 
     # take first index from each population to be reference sequence
     ref_ind_species_to = 0
     ref_ind_species_from1 = sim_args['num_samples_species_to']
     ref_ind_species_from2 = sim_args['num_samples_species_to'] + \
-                            sim_args['num_samples_species_from1']
+        sim_args['num_samples_species_from1']
     ref_inds = [ref_ind_species_to]
 
     states = [sim_args['species_to'], sim_args['species_from1']]
@@ -64,7 +65,7 @@ def process_args(arg_list, sim_args, i=1):
         ref_inds.append(ref_ind_species_from1)
     else:
         unknown_species = sim_args['species_from1']
-    if sim_args['species_from2'] != None:
+    if sim_args['species_from2'] is not None:
         states.append(sim_args['species_from2'])
         if d['has_ref_from2']:
             ref_inds.append(ref_ind_species_from2)
@@ -76,11 +77,12 @@ def process_args(arg_list, sim_args, i=1):
     d['ref_inds'] = ref_inds
 
     # calculate these based on remaining bases
-    expected_num_tracts[sim_args['species_to']] = sum(expected_num_tracts.values()) + 1
+    expected_num_tracts[sim_args['species_to']] = \
+        sum(expected_num_tracts.values()) + 1
     expected_num_introgressed_bases = \
         expected_tract_lengths[sim_args['species_from1']] * \
         expected_num_tracts[sim_args['species_from1']]
-    if sim_args['species_from2'] != None:
+    if sim_args['species_from2'] is not None:
         expected_num_introgressed_bases += \
             expected_tract_lengths[sim_args['species_from2']] * \
             expected_num_tracts[sim_args['species_from2']]
@@ -93,7 +95,9 @@ def process_args(arg_list, sim_args, i=1):
 
     return d, i
 
-# convert sequences from bases to symbols indicating which references they match
+
+# convert sequences from bases to symbols
+# indicating which references they match
 def code_seqs(seqs, ref_seqs):
 
     nrefs = len(ref_seqs)
@@ -115,13 +119,14 @@ def code_seqs(seqs, ref_seqs):
         seqs_coded.append(s)
     return seqs_coded
 
+
 def get_symbol_freqs_one(seqs, predict_args):
 
     if len(seqs) == 0:
         return None
 
     known_states = copy.deepcopy(predict_args['states'])
-    if predict_args['unknown_species'] != None:
+    if predict_args['unknown_species'] is not None:
         known_states.remove(predict_args['unknown_species'])
 
     # for a single species
@@ -148,8 +153,9 @@ def get_symbol_freqs_one(seqs, predict_args):
     # TODO fix so that this makes more sense when we're only going off
     # of reference sequence (shouldn't have freq(+-) = 0 just because
     # it's par reference...but what would make more sense?
-    symbol_combinations = [''.join(x) for x in \
-                           list(itertools.product(symbols, repeat=len(known_states)))]
+    symbol_combinations = [''.join(x) for x in
+                           list(itertools.product(symbols,
+                                                  repeat=len(known_states)))]
     symbol_freqs = dict(zip(symbol_combinations, [0]*len(symbol_combinations)))
     for symbol in symbol_freqs.keys():
         num = 0
@@ -157,7 +163,7 @@ def get_symbol_freqs_one(seqs, predict_args):
         for seq in seqs:
             num += seq.count(symbol)
             den += len(seq)
-        symbol_freqs[symbol] = float(num) / den 
+        symbol_freqs[symbol] = float(num) / den
 
     # weighted matches; for first species +-- gets 1 pt, +-+ and ++-
     # each get 1/2 pt, +++ gets 1/3 pt [treat ? like -] etc
@@ -165,7 +171,7 @@ def get_symbol_freqs_one(seqs, predict_args):
     total = 0
     for i in range(len(known_states)):
         current = 0
-        keep_symbols = [] # for first species +**
+        keep_symbols = []  # for first species +**
         weights = []
         for s in symbol_combinations:
             if s[i] == gp.match_symbol:
@@ -178,7 +184,7 @@ def get_symbol_freqs_one(seqs, predict_args):
         total += current
 
     # for unknown species 1 pt for --- only (or ?)
-    if predict_args['unknown_species'] != None:
+    if predict_args['unknown_species'] is not None:
         current = 0
         keep_symbols = []
         for s in symbol_combinations:
@@ -193,8 +199,9 @@ def get_symbol_freqs_one(seqs, predict_args):
     for state in weighted_match_freqs:
         # total can only be zero if no species has matches
         weighted_match_freqs[state] /= float(total)
-    
+
     return individual_symbol_freqs, symbol_freqs, weighted_match_freqs
+
 
 def get_symbol_freqs(seqs_coded, species_to_indices, predict_args):
 
@@ -218,6 +225,7 @@ def get_symbol_freqs(seqs_coded, species_to_indices, predict_args):
 
     return d
 
+
 def initial_probabilities(weighted_match_freqs, num_sites, predict_args):
 
     # a small value to add so that no frequencies are actually 0
@@ -232,16 +240,19 @@ def initial_probabilities(weighted_match_freqs, num_sites, predict_args):
         # add these two things because we want to average them instead
         # of letting one of them bring the total to zero [should we
         # really give them equal weight though?]
-        init.append(weighted_match_freqs[state] + \
-                    weight_expected * \
-                    float(predict_args['expected_tract_lengths'][state] * \
-                          predict_args['expected_num_tracts'][state]) / \
+        init.append(weighted_match_freqs[state] +
+                    weight_expected *
+                    float(predict_args['expected_tract_lengths'][state] *
+                          predict_args['expected_num_tracts'][state]) /
                     num_sites + epsilon)
     scale = float(sum(init))
     for i in range(len(predict_args['states'])):
         init[i] /= scale
-        assert init[i] > 0, 'my HMM methods break down with zero probabilities (just get rid of the state if you don\'t want it!)'
+        assert init[i] > 0, ('my HMM methods break down with zero '
+                             'probabilities (just get rid of the state if '
+                             'you don\'t want it!)')
     return init
+
 
 # unlike for other parameters, calculate probabilities from the
 # appropriate species sequences instead of just the one being
@@ -267,43 +278,48 @@ def emission_probabilities(d_freqs, own_bias, num_sites, predict_args):
             = d_freqs[state]
         for symbol in symbol_freqs.keys():
             p = symbol_freqs[symbol] * weight_expected * \
-                float(predict_args['expected_tract_lengths'][state] * \
+                float(predict_args['expected_tract_lengths'][state] *
                       predict_args['expected_num_tracts'][state]) / \
                 num_sites + epsilon
             if state == predict_args['unknown_species']:
                 # treat ? as - for now
                 if gp.match_symbol in symbol:
-                    p *= (1 - own_bias)**2 # TODO is this a good idea?
+                    p *= (1 - own_bias)**2  # TODO is this a good idea?
                 else:
-                    p *= own_bias**2 # TODO
+                    p *= own_bias**2  # TODO
             elif symbol[i] == gp.match_symbol:
                 p *= own_bias
-            else: #symbol[i] == mismatch_symbol:
+            else:  # symbol[i] == mismatch_symbol:
                 p *= (1 - own_bias)
             # maybe this kind of guessing for '?' is worth doing? but
             # should probably also do it for the initial/transition
             # probabilities as well if doing it here
-            #else:
-            #    p *= ((own_bias) * individual_symbol_freqs[i][match_symbol] + \
-            #              (1 - own_bias) * individual_symbol_freqs[i][mismatch_symbol])
-            emis_species[symbol] = p 
+            # else:
+            #     p *= ((own_bias) * \
+            #           individual_symbol_freqs[i][match_symbol] + \
+            #               (1 - own_bias) * \
+            #               individual_symbol_freqs[i][mismatch_symbol])
+            emis_species[symbol] = p
         norm = float(sum(emis_species.values()))
         for symbol in emis_species:
             emis_species[symbol] /= norm
-            assert emis_species[symbol] > 0, 'my HMM methods break down with zero probabilities (just get rid of the state if you don\'t want it!)'
+            assert emis_species[symbol] > 0, (
+                'my HMM methods break down with zero probabilities '
+                '(just get rid of the state if you don\'t want it!)')
         emis.append(emis_species)
     return emis
+
 
 def transition_probabilities(weighted_match_freqs, species_to, predict_args):
 
     # a small value to add so that no frequencies are actually 0
     epsilon = 1./1000000
 
-    ##states_not_predict = states
-    ##states_not_predict.remove(predict_species)
-    
+    # states_not_predict = states
+    # states_not_predict.remove(predict_species)
+
     # if a is the species with introgression in it
-    
+
     # transition a->b 1/length not int a * frac to b
     # transition a->c 1/length not int a * frac to c
 
@@ -313,12 +329,13 @@ def transition_probabilities(weighted_match_freqs, species_to, predict_args):
     # b->a 1/length int b
     # b->c basically 0
 
-    # frac to a - 
+    # frac to a -
     # frac to c - num int c / num int c + num not int
 
     # num int c = bases int c / length int c
 
-    # bases int c = [(+c-b) + (+c+b) * 1/2] * some fraction accounting for randomness
+    # bases int c = [(+c-b) + (+c+b) * 1/2] * \
+    #   some fraction accounting for randomness
 
     # c->a 1/length int c
     # c->b basically 0
@@ -345,7 +362,7 @@ def transition_probabilities(weighted_match_freqs, species_to, predict_args):
     # any probabilities to 0
     for state in fracs:
         fracs[state] /= float(frac_den)
-        
+
     trans = []
     for state_from in predict_args['states']:
         trans_current = {}
@@ -360,7 +377,8 @@ def transition_probabilities(weighted_match_freqs, species_to, predict_args):
             # moving from non-introgressed (cer) to introgressed
             elif state_from == species_to:
                 if expected_length_not_introgressed > 0:
-                    val = 1 / expected_length_not_introgressed * fracs[state_to]
+                    val = 1 / expected_length_not_introgressed * \
+                        fracs[state_to]
                 else:
                     # we should definitely transition if we expect
                     # entire sequence to be introgressed
@@ -368,7 +386,8 @@ def transition_probabilities(weighted_match_freqs, species_to, predict_args):
             # moving from introgressed to non-introgressed
             elif state_to == species_to:
                 if predict_args['expected_tract_lengths'][state_from] > 0:
-                    val = 1 / float(predict_args['expected_tract_lengths'][state_from])
+                    val = 1 / float(
+                        predict_args['expected_tract_lengths'][state_from])
                 else:
                     # we should definitely transition if we don't
                     # expect any introgression
@@ -381,24 +400,28 @@ def transition_probabilities(weighted_match_freqs, species_to, predict_args):
             trans_current[state_to] = val
 
         trans_current[state_from] = 1 - total
-                                    
+
         # add epsilon and normalize to avoid 0 probabilities
         total = 1 + len(predict_args['states']) * epsilon
         for state_to in predict_args['states']:
             trans_current[state_to] += epsilon
             trans_current[state_to] /= total
 
-        assert trans_current[state_from] > 0, 'my HMM methods break down with zero probabilities (just get rid of the state if you don\'t want it!)'
+        assert trans_current[state_from] > 0, (
+            'my HMM methods break down with zero probabilities '
+            '(just get rid of the state if you don\'t want it!)')
         trans_row = []
         for state_to in predict_args['states']:
-            assert trans_current[state_to] > 0, 'my HMM methods break down with zero probabilities (just get rid of the state if you don\'t want it!)'
+            assert trans_current[state_to] > 0, (
+                'my HMM methods break down with zero probabilities '
+                '(just get rid of the state if you don\'t want it!)')
             trans_row.append(trans_current[state_to])
         trans.append(trans_row)
 
-
     return trans
 
-def initial_hmm_parameters(seqs_coded, species_to_indices, species_to, \
+
+def initial_hmm_parameters(seqs_coded, species_to_indices, species_to,
                            num_sites, predict_args):
 
     # get frequencies of all symbols (i.e. matching to each
@@ -413,9 +436,11 @@ def initial_hmm_parameters(seqs_coded, species_to_indices, species_to, \
         d_freqs[species_to]
 
     p = {}
-    p['init'] = initial_probabilities(weighted_match_freqs, num_sites, predict_args)
+    p['init'] = initial_probabilities(weighted_match_freqs,
+                                      num_sites, predict_args)
     p['emis'] = emission_probabilities(d_freqs, .99, num_sites, predict_args)
-    p['trans'] = transition_probabilities(weighted_match_freqs, species_to, predict_args)
+    p['trans'] = transition_probabilities(weighted_match_freqs,
+                                          species_to, predict_args)
 
     return p['init'], p['emis'], p['trans']
 
@@ -428,7 +453,7 @@ def convert_predictions(path: List[int], states: List[str]):
 
 
 def fill_prediction(path, ps, seq_start, seq_end, fill_order):
-    
+
     path_filled = [None for i in range(seq_start, seq_end + 1)]
     num_sites = len(path_filled)
     for i in range(len(ps)):
@@ -437,7 +462,7 @@ def fill_prediction(path, ps, seq_start, seq_end, fill_order):
         # extend forward
         in_current_state = path_filled[0] == state
         for i in range(num_sites):
-            if path_filled[i] == None:
+            if path_filled[i] is None:
                 if in_current_state:
                     path_filled[i] = state
             elif path_filled[i] == state:
@@ -448,7 +473,7 @@ def fill_prediction(path, ps, seq_start, seq_end, fill_order):
         # extend backward
         in_current_state = path_filled[-1] == state
         for i in range(num_sites-1, -1, -1):
-            if path_filled[i] == None:
+            if path_filled[i] is None:
                 if in_current_state:
                     path_filled[i] = state
             elif path_filled[i] == state:
@@ -457,20 +482,24 @@ def fill_prediction(path, ps, seq_start, seq_end, fill_order):
                 in_current_state = False
     return path_filled
 
-def run_hmm(seqs, sim_args, predict_args, init, emis, trans, train, default_state, \
+
+def run_hmm(seqs, sim_args, predict_args, init, emis,
+            trans, train, default_state,
             method, ps, seq_start, seq_end):
 
     # sanity checks
-    if predict_args['unknown_species'] != None:
+    if predict_args['unknown_species'] is not None:
         assert len(seqs[0][0]) == len(predict_args['states']) - 1
-        assert set(sim_args['index_to_species']) == set(predict_args['states']), \
-            str(set(sim_args['index_to_species'])) + ' ' + str(predict_args['states'])
+        assert set(sim_args['index_to_species']) == set(
+            predict_args['states']), str(set(sim_args['index_to_species'])) +\
+            ' ' + str(predict_args['states'])
         assert predict_args['unknown_species'] == predict_args['states'][-1]
 
     # only make predictions for sequences that are species_to (and
     # that are not the reference sequences, which we clearly can't
     # make predictions for)
-    predict_inds = copy.deepcopy(sim_args['species_to_indices'][sim_args['species_to']])
+    predict_inds = copy.deepcopy(
+        sim_args['species_to_indices'][sim_args['species_to']])
     predict_inds.remove(predict_args['ref_inds'][0])
     seqs_to_predict = [seqs[x] for x in predict_inds]
 
@@ -492,7 +521,7 @@ def run_hmm(seqs, sim_args, predict_args, init, emis, trans, train, default_stat
     if train:
         hmm.go(predict_args['improvement_frac'])
 
-    # make predictions! 
+    # make predictions!
 
     if method == "posterior":
         predicted = {}
@@ -505,36 +534,38 @@ def run_hmm(seqs, sim_args, predict_args, init, emis, trans, train, default_stat
             # since we want to keep track of the probabilities for all
             # states at each point
             path, path_probs = sim_process.get_max_path(p[i])
-            path_t = sim_process.threshold_predicted(path, path_probs, \
-                                                 predict_args['threshold'], \
-                                                 default_state)
+            path_t = sim_process.threshold_predicted(path, path_probs,
+                                                     predict_args['threshold'],
+                                                     default_state)
             predicted[predict_inds[i]] = path_t
             all_probs[predict_inds[i]] = p[i]
-            predicted[predict_inds[i]] = fill_prediction(predicted[predict_inds[i]], \
-                                                         ps, seq_start, seq_end, \
-                                                         predict_args['states'])
+            predicted[predict_inds[i]] = fill_prediction(
+                predicted[predict_inds[i]], ps, seq_start, seq_end,
+                predict_args['states'])
 
         return predicted, all_probs, hmm, hmm_init
-        
+
     if method == 'viterbi':
         predicted = {}
         for i in predict_inds:
             hmm.set_obs(seqs[i])
-            predicted[i] = convert_predictions(hmm.viterbi(), predict_args['states'])
-            predicted[predict_inds[i]] = fill_prediction(predicted[predict_inds[i]], \
-                                                         ps, seq_start, seq_end, \
-                                                         predict_args['states'])
+            predicted[i] = convert_predictions(
+                hmm.viterbi(), predict_args['states'])
+            predicted[predict_inds[i]] = fill_prediction(
+                predicted[predict_inds[i]], ps, seq_start, seq_end,
+                predict_args['states'])
 
         return predicted, None, hmm, hmm_init
 
     else:
         print('invalid method')
 
-def set_up_seqs(sim, sim_args, predict_args): 
+
+def set_up_seqs(sim, sim_args, predict_args):
 
     # fill in nonpolymorphic sites
     fill_symbol = '0'
-    seqs_filled = sim_process.fill_seqs(sim['seqs'], sim['positions'], \
+    seqs_filled = sim_process.fill_seqs(sim['seqs'], sim['positions'],
                                         sim_args['num_sites'], fill_symbol)
 
     # code sequences by which references they match at each position
@@ -543,34 +574,39 @@ def set_up_seqs(sim, sim_args, predict_args):
 
     return seqs_coded
 
-def predict_introgressed(sim, sim_args, predict_args, train, method, only_poly=True):
-    
+
+def predict_introgressed(sim, sim_args, predict_args,
+                         train, method, only_poly=True):
+
     ref_seqs = [sim['seqs'][r] for r in predict_args['ref_inds']]
     seqs_coded = code_seqs(sim['seqs'], ref_seqs)
-    ps = sim['positions'] 
+    ps = sim['positions']
 
     if not only_poly:
         fill_symbol = gp.match_symbol * len(ref_seqs)
         for i in range(len(seqs_coded)):
-            seqs_coded[i] = sim_process.fill_seq(seqs_coded[i], sim['positions'], \
-                                                 sim_args['num_sites'], fill_symbol)
+            seqs_coded[i] = sim_process.fill_seq(
+                seqs_coded[i], sim['positions'],
+                sim_args['num_sites'], fill_symbol)
         ps = range(0, sim_args['num_sites'])
 
     # initial values for initial, emission, and transition
     # probabilities
-    init, emis, trans = initial_hmm_parameters(seqs_coded, \
-                                               sim_args['species_to_indices'], \
-                                               sim_args['species_to'], \
-                                               sim_args['num_sites'], predict_args)
+    init, emis, trans = initial_hmm_parameters(seqs_coded,
+                                               sim_args['species_to_indices'],
+                                               sim_args['species_to'],
+                                               sim_args['num_sites'],
+                                               predict_args)
 
     # make predictions
     default_state = sim_args['species_to']
     predicted, probs, hmm, hmm_init = \
-        run_hmm(seqs_coded, sim_args, predict_args,\
+        run_hmm(seqs_coded, sim_args, predict_args,
                 init, emis, trans, train, default_state, method, ps,
                 0, sim_args['num_sites']-1)
 
     return predicted, probs, hmm, hmm_init, ps
+
 
 def write_hmm_headers(states, emis_symbols, f, sep):
 
@@ -589,11 +625,12 @@ def write_hmm_headers(states, emis_symbols, f, sep):
     for s1 in states:
         for s2 in states:
             header_string += 'trans_' + s1 + '_' + s2 + sep
-    
+
     f.write(header_string[:-(len(sep))] + '\n')
     f.flush()
 
-def write_hmm_line(hmm, f, header = False):
+
+def write_hmm_line(hmm, f, header=False):
 
     sep = '\t'
     emis_symbols = sorted(hmm.emis[0].keys())

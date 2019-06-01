@@ -1,5 +1,6 @@
 import sys
 
+
 def read_vcf(fn):
     f = open(fn, 'r')
 
@@ -14,14 +15,15 @@ def read_vcf(fn):
     f.close()
     return v
 
+
 def vcf_to_fasta(v, fn_ref, fn_out):
     f_ref = open(fn_ref, 'r')
-    f_out = open(fn_out, 'w')
 
     line = f_ref.readline()
     while line != '':
-        
+
         line = f_ref.readline()
-    
+
+
 v = read_vcf(sys.argv[1])
 vcf_to_fasta(v, sys.argv[2])

@@ -1,43 +1,48 @@
 import math
 import numpy.random
 
-def mean(l):
-    l = filter(lambda x: x != 'NA' and not math.isnan(x), l)
-    if len(l) == 0:
-        #TODO float('nan') ?
-        return 'NA'
-    return float(sum(l)) / len(l)
 
-def std_dev(l):
-    l = filter(lambda x: x != 'NA' and not math.isnan(x), l)
-    if len(l) == 0:
+def mean(values):
+    values = filter(lambda x: x != 'NA' and not math.isnan(x), values)
+    if len(values) == 0:
+        # TODO float('nan') ?
         return 'NA'
-    if len(l) == 1:
+    return float(sum(values)) / len(values)
+
+
+def std_dev(values):
+    values = filter(lambda x: x != 'NA' and not math.isnan(x), values)
+    if len(values) == 0:
+        return 'NA'
+    if len(values) == 1:
         return 0
-    m = mean(l)
-    return math.sqrt(sum([(x - m)**2 for x in l]) / (len(l) - 1))
+    m = mean(values)
+    return math.sqrt(sum([(x - m)**2 for x in values]) / (len(values) - 1))
 
-def std_err(l):
-    l = filter(lambda x: x != 'NA' and not math.isnan(x), l)
-    if len(l) == 0:
+
+def std_err(values):
+    values = filter(lambda x: x != 'NA' and not math.isnan(x), values)
+    if len(values) == 0:
         return 'NA'
-    return std_dev(l) / math.sqrt(len(l))
+    return std_dev(values) / math.sqrt(len(values))
 
-def bootstrap(l, n = 100, alpha = .05):
-    l = filter(lambda x: x != 'NA' and not math.isnan(x), l)
-    x = len(l)
+
+def bootstrap(values, n=100, alpha=.05):
+    values = filter(lambda x: x != 'NA' and not math.isnan(x), values)
+    x = len(values)
     if x == 0:
         return 'NA', 'NA'
     a = []
     for i in range(n):
-        a.append(mean(numpy.random.choice(l, size = x, replace = True)))
+        a.append(mean(numpy.random.choice(values, size=x, replace=True)))
     a.sort()
-    #print len(a), a.count(0)
-    #print mean(a)
+    # print len(a), a.count(0)
+    # print mean(a)
     return a[int(alpha * n * .5)], a[int((1 - alpha * .5) * n)]
 
-def median(l):
-    m = sorted(l)
+
+def median(values):
+    m = sorted(values)
     x = len(m)
     if x % 2 == 0:
         return mean([m[x/2], m[x/2-1]])

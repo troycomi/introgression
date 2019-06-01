@@ -1,6 +1,7 @@
 import compare_introgressed
 import sim_predict
 
+
 def reformat_probs(probs):
     # convert probabilities from {1:{cer:.9,.9,..., par:.1,.1,...}}
     # format to {1:[{cer:.9, par:.1},{cer:.9, par:.1},...]} format
@@ -15,12 +16,15 @@ def reformat_probs(probs):
         p[ind] = p_ind
     return p
 
+
 def get_stats(actual, predicted, sim_args):
 
-    d, d_avg = compare_introgressed.count_bases(actual, predicted, \
-                                                sim_args, 'actual', 'predicted', \
+    d, d_avg = compare_introgressed.count_bases(actual, predicted,
+                                                sim_args, 'actual',
+                                                'predicted',
                                                 sim_args['species_from1'])
     return d_avg
+
 
 def threshold_probs(probs, threshold, default_state, ps, seq_start, seq_end):
 
@@ -48,21 +52,23 @@ def threshold_probs(probs, threshold, default_state, ps, seq_start, seq_end):
                     max_positive_state = state
                     max_positive_prob = probs[i][state]
             predicted_thresholded.append(max_positive_state)
-    predicted_thresholded = sim_predict.fill_prediction(predicted_thresholded, \
-                                                        ps, seq_start, seq_end, \
-                                                        [default_state] + \
+    predicted_thresholded = sim_predict.fill_prediction(predicted_thresholded,
+                                                        ps, seq_start, seq_end,
+                                                        [default_state] +
                                                         positive_states)
     return predicted_thresholded
-    
+
+
 def write_roc_header(f, stats, sep):
 
     f.write('threshold')
     for key in sorted(stats.keys()):
-        if type(key) == type(()):
+        if isinstance(key, tuple):
             key = '_'.join(key)
         f.write(sep + str(key))
         f.flush()
     f.write('\n')
+
 
 def write_roc_line(f, threshold, stats, header):
 

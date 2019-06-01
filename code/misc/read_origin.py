@@ -7,8 +7,9 @@ chrm = sys.argv[3]
 line = f.readline()
 while line != '':
 
-    m = re.search('Saccharomyces cerevisiae (?P<strain>[a-zA-Z0-9]+) chromosome (?P<chrm>[IVXM]+)', line)
-    if m != None:
+    m = re.search('Saccharomyces cerevisiae (?P<strain>[a-zA-Z0-9]+) '
+                  'chromosome (?P<chrm>[IVXM]+)', line)
+    if m is not None:
         current_strain = m.group('strain')
         current_chrm = m.group('chrm')
         if current_strain.lower() == strain.lower() and current_chrm == chrm:
@@ -27,4 +28,3 @@ while line != '':
             fo.close()
             break
     line = f.readline()
-

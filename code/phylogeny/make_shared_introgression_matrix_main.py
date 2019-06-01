@@ -1,12 +1,7 @@
-import sys
-import os
-sys.path.insert(0, '..')
 import global_params as gp
-sys.path.insert(0, '../align/')
-import align_helpers
-sys.path.insert(0, '../misc/')
-import read_fasta
-import read_table
+from align import align_helpers
+from misc import read_table
+
 
 def pad(s, n=10):
     s = s.strip()
@@ -21,8 +16,8 @@ s = align_helpers.get_strains(align_helpers.flatten(gp.non_ref_dirs.values()))
 
 # read in filtered regions
 fn_regions = gp.analysis_out_dir_absolute + tag + '/' + \
-             'introgressed_blocks' + suffix + '_par_' + tag + '_summary_plus.txt'
-regions, l = read_table.read_table_rows(fn_regions, '\t')
+    'introgressed_blocks' + suffix + '_par_' + tag + '_summary_plus.txt'
+regions, _ = read_table.read_table_rows(fn_regions, '\t')
 
 
 site_to_strains_intd = dict(zip(gp.chrms, [{} for c in gp.chrms]))
@@ -41,7 +36,8 @@ for chrm in gp.chrms:
 # looping through all regions, keep track of which strains are
 # introgressed at each site
 for region in regions:
-    for site in range(int(regions[region]['start']), int(regions[region]['end'])+1):
+    for site in range(int(regions[region]['start']),
+                      int(regions[region]['end'])+1):
         chrm = regions[region]['chromosome']
         strain = regions[region]['strain']
         intd[chrm][site].add(strain)
@@ -51,7 +47,7 @@ for region in regions:
 shared_regions = {}
 for chrm in gp.chrms:
     shared_regions[chrm] = []
-    #if intd[chrm][0] != set():
+    # if intd[chrm][0] != set():
     site_to_strains_intd[chrm][0] = intd[chrm][0]
     shared_regions[chrm].append([0, 0, intd[chrm][0]])
     for i in range(1, len(intd[chrm])):
@@ -61,7 +57,7 @@ for chrm in gp.chrms:
         else:
             shared_regions[chrm][-1][1] = i
 
-print shared_regions['I']
+print(shared_regions['I'])
 
 strain_matrix = {}
 for chrm in gp.chrms:
@@ -71,13 +67,13 @@ for chrm in gp.chrms:
             for s2 in range(s1, len(strains)):
                 strain1 = strains[s1]
                 strain2 = strains[s2]
-                if not strain_matrix.has_key(strain1):
+                if strain1 not in strain_matrix:
                     strain_matrix[strain1] = {}
-                if not strain_matrix.has_key(strain2):
+                if strain2 not in strain_matrix:
                     strain_matrix[strain2] = {}
-                if not strain_matrix[strain1].has_key(strain2):
+                if strain2 not in strain_matrix[strain1]:
                     strain_matrix[strain1][strain2] = 0
-                if not strain_matrix[strain2].has_key(strain1):
+                if strain1 not in strain_matrix[strain2]:
                     strain_matrix[strain2][strain1] = 0
                 strain_matrix[strain1][strain2] += 1
                 if strain1 != strain2:
@@ -160,7 +156,8 @@ f.close()
 for chrm in gp.chrms:
 
     f = open('shared_introgression_chr' + chrm + '_nonsingleton_list.txt', 'w')
-    f.write('region_number\tchromosome\tstart\tend\tnum_strains\tstrain_list\n')
+    f.write('region_number\tchromosome\tstart\tend'
+            '\tnum_strains\tstrain_list\n')
     count_ns = 1
 
     for r in shared_regions[chrm]:
@@ -175,7 +172,8 @@ for chrm in gp.chrms:
 
     f.close()
 
-    f = open('strain_shared_introgression_chr' + chrm + '_nonsingleton.txt', 'w')
+    f = open('strain_shared_introgression_chr' + chrm +
+             '_nonsingleton.txt', 'w')
     f.write(str(len(strain_matrix.keys())) + ' ' + str(count_ns - 1) + '\n')
     for strain in sorted(strain_matrix.keys()):
         f.write(pad(strain))
@@ -189,4 +187,3 @@ for chrm in gp.chrms:
     f.write(pad('S288c') + '0' * (count_ns - 1) + '\n')
     f.write(pad('CBS432') + '0' * (count_ns - 1) + '\n')
     f.close()
-

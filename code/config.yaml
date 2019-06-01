@@ -40,13 +40,13 @@ paths:
         suffix: .txt
 
     analysis:
-        analysis_base: __OUTPUT_ROOT__/analysisp4e2
-        regions: __OUTPUT_ROOT__/analysis_test/regions/{state}.fa.gz
-        region_index: __OUTPUT_ROOT__/analysis_test/regions/{state}.pkl
+        analysis_base: __OUTPUT_ROOT__/analysis
+        regions: __ANALYSIS_BASE__/regions/{state}.fa.gz
+        region_index: __ANALYSIS_BASE__/regions/{state}.pkl
         genes: __ANALYSIS_BASE__/genes/
         blocks: __ANALYSIS_BASE__/blocks_{state}.txt
-        labeled_blocks: __ANALYSIS_BASE__/blocks_{state}_p4e2_labeled.txt
-        quality_blocks: __ANALYSIS_BASE__/blocks_{state}_p4e2_quality.txt
+        labeled_blocks: __ANALYSIS_BASE__/blocks_{state}_labeled.txt
+        quality_blocks: __ANALYSIS_BASE__/blocks_{state}_quality.txt
         hmm_initial: __ANALYSIS_BASE__/hmm_initial.txt
         hmm_trained: __ANALYSIS_BASE__/hmm_trained.txt
         probabilities: __ANALYSIS_BASE__/probabilities.txt.gz
@@ -60,6 +60,11 @@ paths:
         ambiguous_intermediate: "__ANALYSIS_BASE__/\
                                  blocks_{state}_filter2inter.txt"
         filter_sweep: __ANALYSIS_BASE__/filter2_thresholds.txt
+        # strain_info is a tsv file with strain, _, _, geographic origin,
+        # environmental origin, population
+        strain_info: "/home/tcomi/projects/aclark4_introgression/\
+                      100_genomes_info.txt"
+        state_counts: __ANALYSIS_BASE__/state_counts.txt
 
     # software install locations
     software:
@@ -87,7 +92,6 @@ chromosomes: ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII',
 # if blank will be the reference and known state names joined with '_'
 
 analysis_params:
-    tag: p2e4
     convergence_threshold: 0.001
     # threshold can be 'viterbi' or a float to threshold HMM probabilities
     threshold: viterbi

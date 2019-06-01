@@ -11,7 +11,7 @@ seqs = []
 while line != '':
     headers.append(line)
     seqs.append(f.readline())
-    print len(seqs[-1])
+    print(len(seqs[-1]))
     line = f.readline()
 
 seqs_new = [''] * len(seqs)
@@ -31,4 +31,3 @@ for j in range(len(seqs)):
 
 f.close()
 fout.close()
-        

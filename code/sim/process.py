@@ -1,12 +1,11 @@
 import sys
-from sim_analyze_hmm_bw import *
-from concordance_functions import *
-sys.path.insert(0, '..')
 import global_params as gp
+
 
 def process_list(l):
     r = [x.strip() for x in l[1:-1].split(',')]
     return [process_entry(x) for x in r]
+
 
 def process_entry(l):
     if len(l) == 0:
@@ -15,20 +14,24 @@ def process_entry(l):
         return process_list(l)
     try:
         return float(l)
-    except:
+    except ValueError:
         return l
 
+
 def process_line(l, d, labels):
-    l = l.strip().split('\t')
-    for i in range(len(l)):
-        r = process_entry(l[i])
+    token = l.strip().split('\t')
+    for i in range(len(token)):
+        r = process_entry(token[i])
         d[labels[i]].append(r)
+
 
 tag = sys.argv[1]
 
 gp_dir = '../'
-results_filename = gp_dir + gp.sim_out_dir + gp.sim_out_prefix + tag + '_summary.txt'
-processed_filename = gp_dir + gp.sim_out_dir + gp.sim_out_prefix + tag + '_summary_processed.txt'
+results_filename = gp_dir + gp.sim_out_dir + \
+    gp.sim_out_prefix + tag + '_summary.txt'
+processed_filename = gp_dir + gp.sim_out_dir + \
+    gp.sim_out_prefix + tag + '_summary_processed.txt'
 
 #####
 # read results file into a table

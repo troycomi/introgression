@@ -6,6 +6,7 @@ from analyze.introgression_configuration import Configuration
 from analyze.id_regions import ID_producer
 from analyze.summarize_region_quality import Summarizer
 from analyze.filter_regions import Filterer
+from analyze.summarize_strain_states import Strain_Summarizer
 
 
 # TODO also check for snakemake object?
@@ -295,6 +296,41 @@ def filter_regions(ctx,
 
     filterer = Filterer(config)
     filterer.run(thresholds)
+
+
+@cli.command()
+@click.option('--introgress-inter', default='',
+              help='Filtered block file location with {state}.'
+              ' Contains all regions with reasons they failed filtering')
+@click.option('--ambiguous-inter', default='',
+              help='Filtered block file location with {state}.'
+              ' Contains all regions passing introgressing filtering, '
+              'with reasons they failed ambiguous filtering')
+@click.option('--strain-info', default='',
+              help='Tab separated table with strain name, alternate name, '
+              'location, envionment, and population')
+@click.option('--state-counts', default='',
+              help='Output state summary file')
+@click.pass_context
+def summarize_strains(ctx,
+                      introgress_inter,
+                      ambiguous_inter,
+                      strain_info,
+                      state_counts):
+    config = ctx.obj  # type: Configuration
+    config.set('states')
+    config.set(introgressed_intermediate=introgress_inter,
+               ambiguous_intermediate=ambiguous_inter,
+               strain_info=strain_info,
+               state_counts=state_counts)
+    log.info('Introgressed intermediate file is '
+             f"'{config.introgressed_intermediate}'")
+    log.info('Ambiguous intermediate file is '
+             f"'{config.ambiguous_intermediate}'")
+    log.info(f"Strain information from '{config.strain_info}'")
+    log.info(f"State counts saved to '{config.state_counts}'")
+    strain_summarizer = Strain_Summarizer(config)
+    strain_summarizer.run()
 
 
 if __name__ == '__main__':

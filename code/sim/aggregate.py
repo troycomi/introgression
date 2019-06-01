@@ -1,25 +1,23 @@
-import sys
-sys.path.append('..')
-import global_params as gp
-sys.path.append('../misc')
-from mystats import *
+from misc.mystats import (mean, std_err, bootstrap)
+
 
 def average_item(item):
     if item == '':
         return mean([])
     if item[0] == '[':
-        l = []
-        if item != '[]':            
-            l = [float(x) for x in item[1:-1].split(',')]
-        return mean(l)
+        items = []
+        if item != '[]':
+            items = [float(x) for x in item[1:-1].split(',')]
+        return mean(items)
     return float(item)
+
 
 def read_summary_file(fn):
     f = open(fn, 'r')
     line = f.readline()
     labels = line[:-1].split('\t')
     ncols = len(labels)
-    vals = [[] for l in labels]
+    vals = [[] for _ in labels]
     line = f.readline()
     while line != '':
         items = line[:-1].split('\t')
@@ -33,12 +31,13 @@ def read_summary_file(fn):
     d_bootstrap = dict(zip(labels, [bootstrap(x) for x in vals]))
     return d_mean, d_std_err, d_bootstrap
 
+
 def write_header(f, keys):
-    
     f.write('line_type\ttag')
     for key in keys:
         f.write('\t' + key)
     f.write('\n')
+
 
 def write_line_set(d_mean, d_std_err, d_bootstrap, keys, tag, f):
 
@@ -66,10 +65,11 @@ def write_line_set(d_mean, d_std_err, d_bootstrap, keys, tag, f):
         f.write('\t' + str(d_bootstrap[key][1]))
     f.write('\n')
 
+
 def aggregate_summary_files(fns, fn_all, tags):
     f_all = open(fn_all, 'w')
     header = True
-    keys = None # for keeping order consistent
+    keys = None  # for keeping order consistent
     for i in range(len(fns)):
         d_mean, d_std_err, d_bootstrap = read_summary_file(fns[i])
         if header:
@@ -78,16 +78,3 @@ def aggregate_summary_files(fns, fn_all, tags):
             header = False
         write_line_set(d_mean, d_std_err, d_bootstrap, keys, tags[i], f_all)
     f_all.close()
-
-
-
-
-
-
-
-
-
-
-
-
-

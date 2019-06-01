@@ -1,11 +1,11 @@
 import sys
-import os
-sys.path.insert(0, '../misc/')
-import read_fasta
+from misc import read_fasta
+
 
 def pad(s, n):
     s = s.strip()
     return s[:n] + (n - len(s)) * ' '
+
 
 headers, seqs = read_fasta.read_fasta(sys.argv[1])
 

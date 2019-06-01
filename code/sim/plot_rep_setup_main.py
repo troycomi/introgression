@@ -14,53 +14,55 @@
 
 import sys
 import os
-from plot_rep_setup import *
+from plot_rep_setup import write_combined_files
 import process_args
 import sim_process
 import sim_predict
-sys.path.append('..')
 import global_params as gp
 
-##======
+# ======
 # read in simulation parameters
-##======
+# ======
 
 sim_tag = sys.argv[2]
 sim_args = process_args.process_args_by_tag(sys.argv[1], sim_tag)
 predict_args, last_read = sim_predict.process_args(sys.argv, sim_args, i=2)
 
-predict_prob_block_types = ['predicted_' + predict_args['predict_tag'], \
-                            'predicted_phylohmm_' + predict_args['predict_tag']]
-predict_path_block_types = []#['predicted_viterbi_' + predict_args['predict_tag']]
+predict_prob_block_types = ['predicted_' + predict_args['predict_tag'],
+                            'predicted_phylohmm_' +
+                            predict_args['predict_tag']]
+# ['predicted_viterbi_' + predict_args['predict_tag']]
+predict_path_block_types = []
 actual_block_type = 'actual'
-block_types = predict_prob_block_types + predict_path_block_types + [actual_block_type]
+block_types = predict_prob_block_types +\
+    predict_path_block_types + [actual_block_type]
 
-##======
+# ======
 # produce combined file
-##======
+# ======
 
 gp_dir = '../'
 # for reading output from ms
-ms_f = open(gp.sim_out_dir_absolute + '/ms/' + gp.sim_out_prefix + \
+ms_f = open(gp.sim_out_dir_absolute + '/ms/' + gp.sim_out_prefix +
             sim_args['tag'] + '.txt', 'r')
 
 # all introgressed block files to read
 introgression_fn_prefix = gp.sim_out_dir_absolute + gp.sim_out_prefix + \
                           sim_args['tag'] + '_introgressed_'
-introgression_files = dict(zip(block_types, \
-                               [open(introgression_fn_prefix + t + '.txt', 'r') \
+introgression_files = dict(zip(block_types,
+                               [open(introgression_fn_prefix + t + '.txt', 'r')
                                 for t in block_types]))
-introgression_file_lines = dict(zip(block_types, \
-                                    [introgression_files[k].readline() \
+introgression_file_lines = dict(zip(block_types,
+                                    [introgression_files[k].readline()
                                      for k in introgression_files]))
 
 # all prob files to read
 prob_fn_prefix = gp.sim_out_dir_absolute + gp.sim_out_prefix + \
                  sim_args['tag'] + '_introgressed_probs_'
-prob_files = dict(zip(predict_prob_block_types, \
-                      [open(prob_fn_prefix + t + '.txt', 'r') \
+prob_files = dict(zip(predict_prob_block_types,
+                      [open(prob_fn_prefix + t + '.txt', 'r')
                        for t in predict_prob_block_types]))
-prob_file_lines = dict(zip(predict_prob_block_types, \
+prob_file_lines = dict(zip(predict_prob_block_types,
                            [prob_files[k].readline() for k in prob_files]))
 
 
@@ -81,30 +83,31 @@ if not os.path.exists(combined_dir):
 # loop through reps and then individuals
 for i in range(sim_args['num_reps']):
 
-    print 'rep', i
+    print('rep', i)
 
-    combined_files = dict(zip(inds, \
-                              [open(combined_fn_prefix + str(ind) + '_rep' + str(i) + \
-                                    '.txt', 'w') \
+    combined_files = dict(zip(inds,
+                              [open(combined_fn_prefix + str(ind) +
+                                    '_rep' + str(i) + '.txt', 'w')
                                for ind in inds]))
 
-    sim = sim_process.read_one_sim(ms_f, sim_args['num_sites'], sim_args['num_samples'])
+    sim = sim_process.read_one_sim(ms_f, sim_args['num_sites'],
+                                   sim_args['num_samples'])
 
     # list of num_samples sequences
     seqs_coded = sim_predict.set_up_seqs(sim, sim_args, predict_args)
 
     # read in blocks from all methods
     # keyed by individual, then block type, list of species at all sites
-    blocks_dic = {} 
+    blocks_dic = {}
 
     # keyed by individual and then block_type and then species, list of probs
     probs = {}
 
     for t in block_types:
         # d is keyed by individual, then species
-        d, rep, line = sim_process.read_introgression_blocks(\
-                            introgression_files[t], \
-                            introgression_file_lines[t], \
+        d, rep, line = sim_process.read_introgression_blocks(
+                            introgression_files[t],
+                            introgression_file_lines[t],
                             predict_args['states'])
         assert i == rep, str(i) + ' ' + str(rep)
         introgression_file_lines[t] = line
@@ -112,7 +115,7 @@ for i in range(sim_args['num_reps']):
         # this is just converting the dictionary to have the block
         # type layer
         for ind in inds:
-            if not blocks_dic.has_key(ind):
+            if ind not in blocks_dic:
                 blocks_dic[ind] = {}
             blocks_dic[ind][t] = d[ind]
 
@@ -122,19 +125,21 @@ for i in range(sim_args['num_reps']):
             blocks_dic[ref_ind][t] = d[ref_ind]
         # probs only exist for predictions with probabilities
         elif t in predict_prob_block_types:
-            probs_ind, rep, line = sim_process.read_state_probs(prob_files[t], \
-                                                                prob_file_lines[t])
+            probs_ind, rep, line = sim_process.read_state_probs(
+                prob_files[t], prob_file_lines[t])
             assert i == rep, str(i) + ' ' + str(rep)
             prob_file_lines[t] = line
             # this is just converting the dictionary to have the block
             # type layer
             for ind in inds:
-                if not probs.has_key(ind):
+                if ind not in probs:
                     probs[ind] = {}
                 probs[ind][t] = probs_ind[ind]
 
-    write_combined_files(combined_files, inds, i, seqs_coded, blocks_dic, probs, \
+    write_combined_files(combined_files, inds, i,
+                         seqs_coded, blocks_dic, probs,
                          actual_block_type, ref_ind, True)
 
-for f in introgression_files.values() + prob_files.values() + combined_files.values():
+for f in introgression_files.values() + \
+        prob_files.values() + combined_files.values():
     f.close()

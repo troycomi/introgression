@@ -1,7 +1,9 @@
-from sim_analyze_hmm_bw import *
-from concordance_functions import *
-sys.path.insert(0, '..')
+from sim.sim_analyze_hmm_bw import (analyze_one, code_seqs, read_fasta,
+                                    write_hmm_params, average_hmm_params,
+                                    make_output_dic, write_output_line,
+                                    initial_hmm_parameters)
 import global_params as gp
+import sys
 
 
 # two options: just summary statistics for simulations, or also
@@ -16,9 +18,24 @@ predict = False
 # program?
 seq_gen = False
 
+
+# These are not defined in original imports so will raise errors til found
+def process_args(argv):
+    raise NotImplementedError()
+
+
+def fill_seqs(argv):
+    raise NotImplementedError()
+
+
+def read_one_sim(argv):
+    raise NotImplementedError()
+
+
 # read in simulation arguments
 tag, topology, species_to, species_from1, species_from2, \
-    num_samples_species_to, num_samples_species_from1, num_samples_species_from2, \
+    num_samples_species_to, num_samples_species_from1, \
+    num_samples_species_from2, \
     N0_species_to, N0_species_from1, N0_species_from2, \
     migration_from1, migration_from2, \
     expected_length_introgressed, \
@@ -56,7 +73,7 @@ if has_ref_from1:
     ref_inds.append(ref_ind_species_from1)
 else:
     unknown_species = species_from1
-if species_from2 != None:
+if species_from2 is not None:
     states.append(species_from2)
     if has_ref_from2:
         ref_inds.append(ref_ind_species_from2)
@@ -69,10 +86,10 @@ if species_from2 != None:
 # the species in states correspond to the indices of the references
 # (and the sequence codings later); ACTUALLY just force the unknown
 # species to come last
-if species_from2 != None:
+if species_from2 is not None:
     assert has_ref_from1
-#if species_from2 != None and not has_ref_from1:
-#    states = states[0] + states[2] + states[1]
+# if species_from2 != None and not has_ref_from1:
+#     states = states[0] + states[2] + states[1]
 
 #####
 # keep track of HMM parameters to average at end
@@ -88,13 +105,17 @@ trans_all = []
 
 gp_dir = '../'
 # for reading output from ms
-ms_f = open(gp_dir + gp.sim_out_dir + '/ms/' +  gp.sim_out_prefix + tag + '.txt', 'r')
+ms_f = open(gp_dir + gp.sim_out_dir + '/ms/' +
+            gp.sim_out_prefix + tag + '.txt', 'r')
 
 # for writing results of analysis
-results_filename = gp_dir + gp.sim_out_dir + '/analyze/' + gp.sim_out_prefix + tag + '_summary.txt'
-hmm_filename = gp_dir + gp.sim_out_dir + '/analyze/' + 'hmm_parameters_' + tag + '.txt'
+results_filename = gp_dir + gp.sim_out_dir + '/analyze/' + \
+    gp.sim_out_prefix + tag + '_summary.txt'
+hmm_filename = gp_dir + gp.sim_out_dir + '/analyze/' + \
+    'hmm_parameters_' + tag + '.txt'
 
-avg_results_filename = gp_dir + gp.sim_out_dir + '/analyze/' + gp.sim_out_prefix + 'avg_' + tag + '_summary.txt'
+avg_results_filename = gp_dir + gp.sim_out_dir + '/analyze/' + \
+    gp.sim_out_prefix + 'avg_' + tag + '_summary.txt'
 
 # write results headers
 # - for training on single sim
@@ -108,15 +129,19 @@ write_output_line(avg_f_out, avg_output_dic, True)
 
 # results files for tracts predicted to be and actually introgressed
 # - for training on single sim
-f_tracts_predicted = open(gp_dir + gp.sim_out_dir + '/analyze/' + \
-                              gp.sim_out_prefix + tag + '_introgressed_tracts_predicted.txt', 'w')
-f_tracts_actual = open(gp_dir + gp.sim_out_dir + '/analyze/' + \
-                           gp.sim_out_prefix + tag + '_introgressed_tracts_actual.txt', 'w')
+f_tracts_predicted = open(gp_dir + gp.sim_out_dir + '/analyze/' +
+                          gp.sim_out_prefix + tag +
+                          '_introgressed_tracts_predicted.txt', 'w')
+f_tracts_actual = open(gp_dir + gp.sim_out_dir + '/analyze/' +
+                       gp.sim_out_prefix + tag +
+                       '_introgressed_tracts_actual.txt', 'w')
 # - and using averaged parameters
-avg_f_tracts_predicted = open(gp_dir + gp.sim_out_dir + '/analyze/' + \
-                                  gp.sim_out_prefix + 'avg_' +  tag + '_introgressed_tracts_predicted.txt', 'w')
-avg_f_tracts_actual = open(gp_dir + gp.sim_out_dir + '/analyze/' + \
-                               gp.sim_out_prefix + 'avg_' + tag + '_introgressed_tracts_actual.txt', 'w')
+avg_f_tracts_predicted = open(gp_dir + gp.sim_out_dir + '/analyze/' +
+                              gp.sim_out_prefix + 'avg_' + tag +
+                              '_introgressed_tracts_predicted.txt', 'w')
+avg_f_tracts_actual = open(gp_dir + gp.sim_out_dir + '/analyze/' +
+                           gp.sim_out_prefix + 'avg_' + tag +
+                           '_introgressed_tracts_actual.txt', 'w')
 
 #####
 # theory (only need to do these calculations once)
@@ -152,13 +177,14 @@ if theory:
 # loop through all reps; for each, read in simulation (and store it),
 # and predict introgressed tracts by training on those sequences
 for i in range(num_reps):
-    print i
+    print(i)
 
     sim = read_one_sim(ms_f, num_sites, num_samples)
-    assert sim != None, str(num_reps) + ' reps is not correct'
-    
+    assert sim is not None, str(num_reps) + ' reps is not correct'
+
     if seq_gen:
-        seq_fn = gp_dir + gp.sim_out_dir + '/seq-gen/' + gp.sim_out_prefix + 'seq_gen_' + tag + '_rep' + str(i) + '.fasta'
+        seq_fn = gp_dir + gp.sim_out_dir + '/seq-gen/' + gp.sim_out_prefix + \
+            'seq_gen_' + tag + '_rep' + str(i) + '.fasta'
         sim[4] = read_fasta(seq_fn)
     else:
         # fill in the nonpolymorphic sites
@@ -172,32 +198,23 @@ for i in range(num_reps):
     ref_seqs = [seqs[x] for x in ref_inds]
     # convert from binary to symbols indicating which reference
     # sequences each base matches
-    seqs_coded = code_seqs(seqs, num_sites, ref_seqs, \
-                               gp.match_symbol, gp.mismatch_symbol, \
-                               gp.unknown_symbol, gp.unsequenced_symbol)
+    seqs_coded = code_seqs(seqs, num_sites, ref_seqs,
+                           gp.match_symbol, gp.mismatch_symbol,
+                           gp.unknown_symbol, gp.unsequenced_symbol)
 
-    init, emis, trans = initial_hmm_parameters(seqs_coded, species_to, \
-                                                   index_to_species, states, \
-                                                   unknown_species, \
-                                                   gp.match_symbol, \
-                                                   gp.mismatch_symbol, \
-                                                   gp.unknown_symbol, \
-                                                   expected_length_introgressed, \
-                                                   expected_num_introgressed_tracts)
+    init, emis, trans = initial_hmm_parameters(
+        seqs_coded, species_to, index_to_species, states,
+        unknown_species, gp.match_symbol, gp.mismatch_symbol,
+        gp.unknown_symbol, expected_length_introgressed,
+        expected_num_introgressed_tracts)
 
     # get parameters from training (but provide initial values)
-    init_new, emis_new, trans_new = analyze_one(sim, seqs_coded, \
-                                                    init, emis, trans, \
-                                                    num_sites, fill_symbol, \
-                                                    ref_inds, ref_seqs, \
-                                                    num_samples_species_to, \
-                                                    species_to, index_to_species, \
-                                                    topology, states, unknown_species, \
-                                                    len(states) - 1, \
-                                                    output_dic, f_out, \
-                                                    f_tracts_predicted, \
-                                                    f_tracts_actual, i, \
-                                                    train=True)
+    init_new, emis_new, trans_new = analyze_one(
+        sim, seqs_coded, init, emis, trans, num_sites, fill_symbol,
+        ref_inds, ref_seqs, num_samples_species_to, species_to,
+        index_to_species, topology, states, unknown_species,
+        len(states) - 1, output_dic, f_out, f_tracts_predicted,
+        f_tracts_actual, i, train=True)
     init_all.append(init_new)
     emis_all.append(emis_new)
     trans_all.append(trans_new)
@@ -205,7 +222,8 @@ for i in range(num_reps):
 f_out.close()
 
 ms_f.close()
-ms_f = open(gp_dir + gp.sim_out_dir + '/ms/' +  gp.sim_out_prefix + tag + '.txt', 'r')
+ms_f = open(gp_dir + gp.sim_out_dir + '/ms/' +
+            gp.sim_out_prefix + tag + '.txt', 'r')
 
 # get average of HMM parameters across all simulations and write them
 # to file
@@ -216,13 +234,14 @@ write_hmm_params(init, emis, trans, states, unknown_species, hmm_filename)
 # parameters (no training)
 for i in range(num_reps):
 
-    print i
+    print(i)
 
     sim = read_one_sim(ms_f, num_sites, num_samples)
-    assert sim != None, str(num_reps) + ' reps is not correct'
+    assert sim is not None, str(num_reps) + ' reps is not correct'
 
     if seq_gen:
-        seq_fn = gp_dir + gp.sim_out_dir + '/seq-gen/' + gp.sim_out_prefix + 'seq_gen_' + tag + '_rep' + str(i) + '.fasta'
+        seq_fn = gp_dir + gp.sim_out_dir + '/seq-gen/' + gp.sim_out_prefix + \
+            'seq_gen_' + tag + '_rep' + str(i) + '.fasta'
         sim[4] = read_fasta(seq_fn)
     else:
         # fill in the nonpolymorphic sites
@@ -236,25 +255,17 @@ for i in range(num_reps):
     ref_seqs = [seqs[x] for x in ref_inds]
     # convert from binary to symbols indicating which reference
     # sequences each base matches
-    seqs_coded = code_seqs(seqs, num_sites, ref_seqs, \
-                               gp.match_symbol, gp.mismatch_symbol, \
-                               gp.unknown_symbol, gp.unsequenced_symbol)
-
+    seqs_coded = code_seqs(seqs, num_sites, ref_seqs,
+                           gp.match_symbol, gp.mismatch_symbol,
+                           gp.unknown_symbol, gp.unsequenced_symbol)
 
     # give averaged parameters this time
-    init_new, emis_new, trans_new = analyze_one(sim, seqs_coded, \
-                                                    init, emis, trans, \
-                                                    num_sites, fill_symbol, ref_inds, \
-                                                    ref_seqs, \
-                                                    num_samples_species_to, \
-                                                    species_to, index_to_species, \
-                                                    topology, states, \
-                                                    unknown_species, \
-                                                    len(states) - 1, \
-                                                    avg_output_dic, avg_f_out, \
-                                                    avg_f_tracts_predicted, \
-                                                    avg_f_tracts_actual, i, \
-                                                    train=False)
+    init_new, emis_new, trans_new = analyze_one(
+        sim, seqs_coded, init, emis, trans, num_sites, fill_symbol, ref_inds,
+        ref_seqs, num_samples_species_to, species_to, index_to_species,
+        topology, states, unknown_species, len(states) - 1,
+        avg_output_dic, avg_f_out, avg_f_tracts_predicted,
+        avg_f_tracts_actual, i, train=False)
 
 avg_f_out.close()
 
@@ -272,7 +283,7 @@ for params in param_sets:
 
     for i in range(num_reps):
         print i
-    
+
         analyze_one_rep(params, f)
 """
 
@@ -280,4 +291,3 @@ for params in param_sets:
 ms_f.close()
 f_tracts_predicted.close()
 f_tracts_actual.close()
-

@@ -1,12 +1,7 @@
-import sys
-import os
-sys.path.insert(0, '..')
 import global_params as gp
-sys.path.insert(0, '../align/')
-import align_helpers
-sys.path.insert(0, '../misc/')
-import read_fasta
-import read_table
+from align import align_helpers
+from misc import read_table
+
 
 def pad(s, n=10):
     s = s.strip()
@@ -21,8 +16,9 @@ s = align_helpers.get_strains(align_helpers.flatten(gp.non_ref_dirs.values()))
 
 # read in filtered regions
 fn_regions = gp.analysis_out_dir_absolute + tag + '/' + \
-             'introgressed_blocks' + suffix + '_par_' + tag + '_summary_plus.txt'
-regions, l = read_table.read_table_rows(fn_regions, '\t')
+    'introgressed_blocks' + suffix + '_par_' + \
+    tag + '_summary_plus.txt'
+regions, _ = read_table.read_table_rows(fn_regions, '\t')
 
 # read in genes for each region
 fn_genes_for_each_region = gp.analysis_out_dir_absolute + tag + '/' + \
@@ -35,7 +31,7 @@ for line in open(fn_genes_for_each_region, 'r').readlines():
         strain = regions[region]['strain']
         g = line[2::2]
         for gene in g:
-            if not introgressed_genes_strains.has_key(gene):
+            if gene not in introgressed_genes_strains:
                 introgressed_genes_strains[gene] = set([])
             introgressed_genes_strains[gene].add(strain)
 
@@ -47,7 +43,8 @@ f_gene_list.close()
 
 f_dollop = open('infile_dollop', 'w')
 
-f_dollop.write(str(len(s)+2) + ' ' + str(len(introgressed_genes_strains)) + '\n')
+f_dollop.write(str(len(s)+2) + ' ' +
+               str(len(introgressed_genes_strains)) + '\n')
 f_dollop.write(pad(gp.master_ref) + '0' * len(genes) + '\n')
 f_dollop.write(pad(gp.alignment_ref_order[1]) + '0' * len(genes) + '\n')
 
@@ -63,11 +60,12 @@ for strain, d in s:
 f_dollop.close()
 
 f_matrix = open('strain_gene_introgressed_matrix.tsv', 'w')
-f_matrix.write('strain' + '\t' + '\t'.join(genes) +'\n')
+f_matrix.write('strain' + '\t' + '\t'.join(genes) + '\n')
 f_matrix.write(gp.master_ref + '\t' + '\t'.join(['0' for g in genes]) + '\n')
-f_matrix.write(gp.alignment_ref_order[1] + '\t' + '\t'.join(['0' for g in genes]) + '\n')
+f_matrix.write(gp.alignment_ref_order[1] + '\t' +
+               '\t'.join(['0' for g in genes]) + '\n')
 for strain, d in s:
-    f_matrix.write( strain)
+    f_matrix.write(strain)
     for gene in genes:
         if strain in introgressed_genes_strains[gene]:
             f_matrix.write('\t1')

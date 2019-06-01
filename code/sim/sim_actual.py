@@ -1,24 +1,23 @@
-import sys
-import os
-import copy
 import concordance_functions
 
-def seq_id(a, b, l = -1, use_gaps = False):
+
+def seq_id(a, b, length=-1, use_gaps=False):
     assert len(a) == len(b)
     ndiff = 0
     ntotal = 0
-    for i in xrange(len(a)):
+    for i in range(len(a)):
         # use sequence a as denominator
         if a[i] != '-':
             if b[i] != '-' or use_gaps:
                 ntotal += 1
                 if a[i] != b[i]:
                     ndiff += 1
-    if l == -1:
+    if length == -1:
         if ntotal == 0:
             return -1, 0
         return 1 - float(ndiff) / ntotal, ntotal
-    return 1 - float(ndiff) / l
+    return 1 - float(ndiff) / length
+
 
 def sim_stats(sim, args):
 
@@ -36,26 +35,31 @@ def sim_stats(sim, args):
             # within species
             if i == j:
                 for k in range(len(inds1)):
-                    for l in range(k+1, len(inds1)):
+                    for pos in range(k+1, len(inds1)):
                         s1 = inds1[k]
-                        s2 = inds1[l]
-                        ids_ij.append(\
-                            seq_id(sim['seqs'][s1], sim['seqs'][s2], args['num_sites']))
-                        
+                        s2 = inds1[pos]
+                        ids_ij.append(
+                            seq_id(sim['seqs'][s1],
+                                   sim['seqs'][s2],
+                                   args['num_sites']))
+
             # between species
             else:
                 species2 = args['species'][j]
-                inds2 = args['species_to_indices'][species2] 
+                inds2 = args['species_to_indices'][species2]
                 for s1 in inds1:
                     for s2 in inds2:
-                        ids_ij.append(\
-                            seq_id(sim['seqs'][s1], sim['seqs'][s2], args['num_sites']))
+                        ids_ij.append(
+                            seq_id(sim['seqs'][s1],
+                                   sim['seqs'][s2],
+                                   args['num_sites']))
 
             ids[(species1, species2)] = ids_ij
 
-    stats = {'seq_ids':ids}
+    stats = {'seq_ids': ids}
 
     return stats
+
 
 def weighted_average(values, weights):
     assert len(values) == len(weights)
@@ -67,6 +71,7 @@ def weighted_average(values, weights):
 
     return total
 
+
 def calculate_ils(sim, args):
 
     num_trees = len(sim['trees'])
@@ -74,13 +79,14 @@ def calculate_ils(sim, args):
     for ti in range(num_trees):
         t = sim['trees'][ti]
 
-        if concordance_functions.is_concordant(\
-            t, args['index_to_species'], args['species_to']):
+        if concordance_functions.is_concordant(
+                t, args['index_to_species'], args['species_to']):
             concordant[ti] = 1
 
-    stats = {'concordant_site_freq':weighted_average(concordant, sim['recomb_sites']),\
-                 'concordant_tree_frac':float(sum(concordant)) / num_trees}
-            
+    stats = {'concordant_site_freq': weighted_average(concordant,
+                                                      sim['recomb_sites']),
+             'concordant_tree_frac': float(sum(concordant)) / num_trees}
+
     return stats
 
 
@@ -100,9 +106,10 @@ def find_introgressed_2(t, cutoff_time, species_to, index_to_species):
     # keep track of which species introgression came from
     introgressed = {}
     num_lineages_species_to = 0
-    for l in lineages:
+    for lineage in lineages:
         not_introgressed, s = \
-            concordance_functions.is_partial_clade(l, species_to, index_to_species)
+            concordance_functions.is_partial_clade(lineage, species_to,
+                                                   index_to_species)
         # if this lineage has only species_to members, then add this
         # to the number of lineages for the species
         if not_introgressed:
@@ -111,13 +118,14 @@ def find_introgressed_2(t, cutoff_time, species_to, index_to_species):
         # mark all individuals as coming from species_from (since
         # we're only allowing migration in one direction)
         else:
-            for label in concordance_functions.get_labels(l):
+            for label in concordance_functions.get_labels(lineage):
                 # note that species labels/indices start at 0 (see
                 # sim_process.parse_ms_tree_helper())
                 if index_to_species[label] == species_to:
                     introgressed[label] = s
 
     return introgressed, num_lineages_species_to
+
 
 def find_introgressed_3(t, topology, species_to, index_to_species):
     # find species that are introgressed within a single unrecombined
@@ -135,24 +143,26 @@ def find_introgressed_3(t, topology, species_to, index_to_species):
     # because two of them have joined; so instead...figure out which
     # species is the last to join (from the topology), then...  nvm,
     # only allowing migration later on makes this less complicated
-    
+
     join_time_species_to = topology[2]
     subtree = topology[0]
     last_to_join = topology[1]
-    if type(subtree) != type([]):
+    if isinstance(subtree, list):
         subtree = topology[1]
         last_to_join = topology[0]
     if last_to_join != species_to:
         join_time_species_to = subtree[2]
 
-    return find_introgressed_2(t, join_time_species_to, species_to, index_to_species)
+    return find_introgressed_2(t, join_time_species_to,
+                               species_to, index_to_species)
+
 
 def find_introgressed(sim, args):
 
-    ##======
+    # ======
     # figure out which sites are actually introgressed by separately
     # looking at the tree for each stretch without recombination
-    ##======
+    # ======
 
     # indices of all species_to individuals (the ones for which we
     # care about introgression)
@@ -180,15 +190,15 @@ def find_introgressed(sim, args):
         # this up a little
         introgressed = None
         # two species total
-        if args['species_from2'] == None:
+        if args['species_from2'] is None:
             introgressed, num_lineages = \
-                find_introgressed_2(t, args['topology'][2], args['species_to'], \
-                                        args['index_to_species'])
+                find_introgressed_2(t, args['topology'][2], args['species_to'],
+                                    args['index_to_species'])
         # three species total
         else:
             introgressed, num_lineages = \
-                find_introgressed_3(t, args['topology'], args['species_to'], \
-                                        args['index_to_species'])
+                find_introgressed_3(t, args['topology'], args['species_to'],
+                                    args['index_to_species'])
 
         # number of sites in the current block of sequence
         num_sites_t = sim['recomb_sites'][ti]
@@ -196,78 +206,81 @@ def find_introgressed(sim, args):
         # the length of the block to the total number of
         # introgressed sites across all strains; also update the
         # state sequence
-        
+
         # just call ref ind the first index of the species
-        ref_ind = min(args['species_to_indices'][args['species_to']]) 
+        ref_ind = min(args['species_to_indices'][args['species_to']])
         for i in inds:
-            if introgressed.has_key(i):
+            if i in introgressed:
                 num_introgressed[i] += num_sites_t
                 actual_state_seq[i] += [introgressed[i]] * num_sites_t
-                if not introgressed.has_key(ref_ind):
+                if ref_ind not in introgressed:
                     num_introgressed_non_ref[i] += num_sites_t
             else:
                 actual_state_seq[i] += [args['species_to']] * num_sites_t
 
-    stats = {'num_introgressed':num_introgressed, \
-             'num_introgressed_non_ref':num_introgressed_non_ref}
+    stats = {'num_introgressed': num_introgressed,
+             'num_introgressed_non_ref': num_introgressed_non_ref}
 
     return stats, actual_state_seq
+
 
 def one_output_header_chunk(d, sep):
 
     s = ''
     for key in sorted(d.keys()):
         value = d[key]
-        if type(value) == type({}):
+        if isinstance(value, dict):
             for subkey in sorted(value.keys()):
                 s += str(key) + '_' + str(subkey) + sep
-        elif type(value) == type([]):
+        elif isinstance(value, list):
             for i in range(len(value)):
                 s += str(key) + '_' + str(i) + sep
         else:
             s += str(key) + sep
     return s
 
-def write_output_headers(summary_info, concordance_info, introgression_info, f, sep):
+
+def write_output_headers(summary_info, concordance_info,
+                         introgression_info, f, sep):
 
     line_string = ''
 
     line_string += one_output_header_chunk(summary_info, sep)
     line_string += one_output_header_chunk(concordance_info, sep)
     line_string += one_output_header_chunk(introgression_info, sep)
-    
+
     f.write(line_string[:-1] + '\n')
-    
+
 
 def one_output_chunk(d, sep):
 
     s = ''
     for key in sorted(d.keys()):
         value = d[key]
-        if type(value) == type({}):
+        if isinstance(value, dict):
             for subkey in sorted(value.keys()):
                 s += str(value[subkey]) + sep
-        elif type(value) == type([]):
+        elif isinstance(value, list):
             for i in range(len(value)):
                 s += str(value[i]) + sep
         else:
             s += str(value) + sep
     return s
 
-def write_output_line(summary_info, concordance_info, introgression_info, f, \
-                          header = False):
+
+def write_output_line(summary_info, concordance_info, introgression_info, f,
+                      header=False):
 
     sep = '\t'
 
     if header:
-        write_output_headers(summary_info, concordance_info, introgression_info, f, sep)
+        write_output_headers(summary_info, concordance_info,
+                             introgression_info, f, sep)
 
     line_string = ''
 
     line_string += one_output_chunk(summary_info, sep)
     line_string += one_output_chunk(concordance_info, sep)
     line_string += one_output_chunk(introgression_info, sep)
-    
-    f.write(line_string[:-1] + '\n')
 
-    
+    f.write(line_string[:-1] + '\n')
