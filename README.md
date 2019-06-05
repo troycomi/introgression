@@ -1,8 +1,8 @@
 # introgression
-> Some sort of short, description
+> Discovering yeast admixture through sequencing
 
 ## Background
-Things about science
+TBA
 
 ## Installation
 All required packages are specified in the conda environment located in 
@@ -26,10 +26,10 @@ be set specifically for your system and dataset.
 
 Strings of the form \_\_KEY\_\_
 are substituted during execution and are used as a shortcut.  For example,
-with 'output\_root' set to `/data/results`, the value `__OUTPUT_ROOT__/genes/`
+with `output\_root` set to `/data/results`, the value `__OUTPUT_ROOT__/genes/`
 becomes `/data/results/genes/`.
 
-Strings of the form {state} are used for wildcards within the code.  Their
+Strings of the form `{state}` are used for wildcards within the code.  Their
 location and surrounding characters can change, but the wildcard must be the
 same.  For example, `blocks_{state}.txt` can be changed to
 `{state}_with-block.txt` but not `blocks_{st}.txt`.
@@ -47,6 +47,9 @@ base configuration for the system and analysis-specific configurations added
 as needed.
 - verbosity: set by varying the number of v's attached to the option, with 
 `-v` indicating a log level of critical and `-vvvvv` indicating debug logging.
+- --log-file: Optional location to store log information.  Default is stdout.
+If set and run on an interactive shell, some commands will display progress
+bars.
 
 Most subcommand options will overwrite corresponding values in the config
 file.  Leaving options unset without supplying a value in the config file
@@ -59,9 +62,9 @@ The predict subcommand uses an HMM to predict regions of introgression from
 alignment files.  Several outputs are used in subsequent steps which refine
 the predicted introgressed regions.
 
-Test strains to predict introgression on can be supplied in the config file
-under the name 'strains' or pulled from the directory structure of
-test\_strains.
+Test strains on which to predict introgression can be supplied in the config
+file under the name `strains` or pulled from the directory structure of
+`test_strains`.
 
 Available options are:
 - --alignment: input alignment file location with wildcards for 
@@ -121,8 +124,8 @@ previous step.
 - --quality: The output file with a {state} wildcard.
 - --region: The alignment for each region in the labeled file with {state}
 wildcard.  Each state file contains all regions for the state.
-- --region-index: A pickled dictionary used for random access into the region
-file.  Must have {state} wildcard.
+- --region-index: A pickled python dictionary used for random access into the
+region file.  Must have {state} wildcard.
 
 ##### filter-regions
 From the quality files produced in `summarize-regions`, filter regions based
@@ -150,8 +153,8 @@ wildcard.
 - --introgress-filter: The output file with only regions passing introgression
 filter.  Must contain {state} wildcard.
 - --introgress-inter: An output file with all regions.  Includes the reason
-for filtering by the introgression filter or '' if passes. Must contain {state}
-wildcard.
+for filtering by the introgression filter or blank if it passes.
+Must contain {state} wildcard.
 - --ambiguous-filter: Output file containing only regions which pass the 
 ambiguous filter after passing the introgression filter.
 Must contain {state} wildcard.
@@ -163,12 +166,14 @@ column for the reason the region failed ambiguous filtering.  Must contain
 will output summary information for applying the ambiguous filter with various
 threshold values.
 
-filter-regions also accepts multiple threshold values as arguments to test
-and output to the filter-sweep file.  Sample usage would be
+`filter-regions` accepts multiple threshold values as arguments to test
+and output to the `filter-sweep` file.  Sample usage would be
 ```bash
 introgression --config config.yml \
-    filter-regions --threshold 0.995 \
-    --filter-sweep sweep.txt 0.99 0.98 0.8
+    filter-regions
+    --threshold 0.995 \
+    --filter-sweep sweep.txt \
+    0.99 0.98 0.8  # these are the sweep arguments
 ```
 where 0.99, 0.98 and 0.8 are used as test threshold values as summarized in
 sweep.txt.  Note that the ambiguous filter will only use the threshold 0.995
