@@ -1,3 +1,6 @@
+[![Build Status](https://travis-ci.com/troycomi/introgression.svg?branch=master)](https://travis-ci.com/troycomi/introgression)
+[![codecov](https://codecov.io/gh/troycomi/introgression/branch/master/graph/badge.svg)](https://codecov.io/gh/troycomi/introgression)
+
 # introgression
 > Discovering yeast admixture through sequencing
 
