@@ -1,3 +1,4 @@
+name: introgression
 channels:
   - defaults
 dependencies:
